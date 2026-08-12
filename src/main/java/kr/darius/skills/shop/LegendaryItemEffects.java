@@ -1,0 +1,107 @@
+package kr.darius.skills.shop;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.phys.Vec3;
+
+/** Runtime effects for the first fighter legendary items. */
+public final class LegendaryItemEffects {
+    private static final Identifier CLEAVER_ARMOR_ID = Identifier.fromNamespaceAndPath("darius_skills", "black_cleaver_shred");
+    private static final Map<UUID, Long> SPELLBLADE_ARMED = new HashMap<>();
+    private static final Map<UUID, Long> SPELLBLADE_COOLDOWN = new HashMap<>();
+    private static final Map<UUID, RuinedKingState> RUINED_KING = new HashMap<>();
+    private static final Map<UUID, CleaverState> CLEAVER = new HashMap<>();
+
+    private LegendaryItemEffects() {}
+
+    public static void onSkillInput(ServerPlayer player) {
+        if (!PlayerEconomy.owns(player, LolShopItem.TRINITY_FORCE)) return;
+        long now = System.currentTimeMillis();
+        if (SPELLBLADE_COOLDOWN.getOrDefault(player.getUUID(), 0L) <= now)
+            SPELLBLADE_ARMED.put(player.getUUID(), now + 10_000);
+    }
+
+    public static void onBasicAttack(ServerPlayer player, LivingEntity target) {
+        long now = System.currentTimeMillis();
+        if (PlayerEconomy.owns(player, LolShopItem.TRINITY_FORCE)) {
+            Long armedUntil = SPELLBLADE_ARMED.get(player.getUUID());
+            if (armedUntil != null && armedUntil > now && SPELLBLADE_COOLDOWN.getOrDefault(player.getUUID(), 0L) <= now) {
+                float damage = (float) Math.max(1.0, player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.0);
+                extraPhysical(player, target, damage);
+                SPELLBLADE_ARMED.remove(player.getUUID());
+                SPELLBLADE_COOLDOWN.put(player.getUUID(), now + 1_500);
+                player.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, 0, false, false));
+                player.level().playSound(null, target.blockPosition(), SoundEvents.TRIDENT_HIT, SoundSource.PLAYERS, 0.8f, 1.25f);
+            }
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.BLADE_OF_THE_RUINED_KING)) {
+            float damage = Math.max(0.5f, target.getHealth() * 0.09f);
+            extraPhysical(player, target, damage);
+            player.heal(Math.max(0.1f, damage * 0.10f));
+            RuinedKingState previous = RUINED_KING.get(target.getUUID());
+            int hits = previous != null && previous.attacker.equals(player.getUUID()) && previous.expiresAt > now ? previous.hits + 1 : 1;
+            if (hits >= 3) {
+                target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 20, 1, false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.SPEED, 20, 0, false, false));
+                RUINED_KING.remove(target.getUUID());
+            } else {
+                RUINED_KING.put(target.getUUID(), new RuinedKingState(player.getUUID(), hits, now + 6_000));
+            }
+            player.level().sendParticles(ParticleTypes.SOUL, target.getX(), target.getY() + 1.0, target.getZ(), 8, 0.25, 0.45, 0.25, 0.02);
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.BLACK_CLEAVER)) {
+            applyCleaver(player, target, now);
+            player.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, 0, false, false));
+        }
+    }
+
+    private static void applyCleaver(ServerPlayer player, LivingEntity target, long now) {
+        CleaverState previous = CLEAVER.get(target.getUUID());
+        int stacks = previous != null && previous.expiresAt > now ? Math.min(5, previous.stacks + 1) : 1;
+        var armor = target.getAttribute(Attributes.ARMOR);
+        if (armor != null) {
+            armor.removeModifier(CLEAVER_ARMOR_ID);
+            armor.addTransientModifier(new AttributeModifier(CLEAVER_ARMOR_ID, -0.06 * stacks, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
+        CLEAVER.put(target.getUUID(), new CleaverState(target, stacks, now + 6_000));
+        if (target.level() instanceof ServerLevel level)
+            level.sendParticles(ParticleTypes.SMOKE, target.getX(), target.getY() + 1, target.getZ(), stacks * 2, 0.25, 0.4, 0.25, 0.01);
+    }
+
+    private static void extraPhysical(ServerPlayer player, LivingEntity target, float damage) {
+        Vec3 movement = target.getDeltaMovement();
+        target.invulnerableTime = 0;
+        target.hurtServer(player.level(), player.damageSources().playerAttack(player), damage);
+        target.setDeltaMovement(movement);
+    }
+
+    public static void tick(MinecraftServer server) {
+        long now = System.currentTimeMillis();
+        SPELLBLADE_ARMED.entrySet().removeIf(entry -> entry.getValue() <= now);
+        SPELLBLADE_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
+        RUINED_KING.entrySet().removeIf(entry -> entry.getValue().expiresAt <= now);
+        CLEAVER.entrySet().removeIf(entry -> {
+            CleaverState state = entry.getValue();
+            if (state.expiresAt > now && state.target.isAlive()) return false;
+            var armor = state.target.getAttribute(Attributes.ARMOR);
+            if (armor != null) armor.removeModifier(CLEAVER_ARMOR_ID);
+            return true;
+        });
+    }
+
+    private record RuinedKingState(UUID attacker, int hits, long expiresAt) {}
+    private record CleaverState(LivingEntity target, int stacks, long expiresAt) {}
+}

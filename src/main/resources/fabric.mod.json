@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "darius_skills",
+  "version": "${version}",
+  "name": "LOL Hyunmin",
+  "description": "A Fabric League-inspired combat framework with playable Darius and Yone.",
+  "authors": ["Codex"],
+  "license": "CC0-1.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["kr.darius.skills.DariusSkills"],
+    "client": ["kr.darius.skills.client.DariusSkillsClient"]
+  },
+  "mixins": ["darius_skills.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

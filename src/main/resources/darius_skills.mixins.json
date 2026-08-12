@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "kr.darius.skills.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "BlockDisplayAccessor",
+    "DisplayAccessor",
+    "ItemDisplayAccessor",
+    "PlayerDropMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
