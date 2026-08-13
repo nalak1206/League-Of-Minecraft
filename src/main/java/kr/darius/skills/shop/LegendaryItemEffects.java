@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.List;
+import kr.darius.skills.combat.CombatEngine;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
@@ -16,7 +17,6 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.phys.Vec3;
 
 /** Runtime effects for the first fighter legendary items. */
 public final class LegendaryItemEffects {
@@ -141,19 +141,13 @@ public final class LegendaryItemEffects {
     }
 
     private static void extraPhysical(ServerPlayer player, LivingEntity target, float damage) {
-        Vec3 movement = target.getDeltaMovement();
-        target.invulnerableTime = 0;
-        target.hurtServer(player.level(), player.damageSources().playerAttack(player), damage);
-        target.invulnerableTime = 0;
-        target.setDeltaMovement(movement);
+        CombatEngine.deal(player, target, damage, CombatEngine.DamageKind.PHYSICAL,
+                CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
     }
 
     private static void extraMagic(ServerPlayer player, LivingEntity target, float damage) {
-        Vec3 movement = target.getDeltaMovement();
-        target.invulnerableTime = 0;
-        target.hurtServer(player.level(), player.damageSources().magic(), damage);
-        target.invulnerableTime = 0;
-        target.setDeltaMovement(movement);
+        CombatEngine.deal(player, target, damage, CombatEngine.DamageKind.MAGIC,
+                CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
     }
 
     public static void tick(MinecraftServer server) {
