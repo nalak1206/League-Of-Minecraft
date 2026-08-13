@@ -42,7 +42,7 @@ public final class LolShopMenu extends ChestMenu {
             if (itemIndex >= items.size()) break;
             LolShopItem item = items.get(itemIndex);
             boolean owned = PlayerEconomy.account(customer).owns(item);
-            ItemStack icon = new ItemStack(item.icon());
+            ItemStack icon = item.createIcon();
             icon.set(DataComponents.CUSTOM_NAME, Component.literal((owned ? "§a" : "§f") + item.displayName() + " §6" + item.price() + "G"));
             shop.setItem(ITEM_SLOTS[index], icon);
         }

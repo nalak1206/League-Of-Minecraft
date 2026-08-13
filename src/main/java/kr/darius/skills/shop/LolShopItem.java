@@ -26,7 +26,7 @@ public enum LolShopItem {
     MERCURYS("헤르메스의 발걸음", Category.BOOTS, 1250, Items.DIAMOND_BOOTS, 0, 0, 0, 0, 0, 0.14),
 
     TRINITY_FORCE("삼위일체", Category.FIGHTER, 3333, Items.MUSIC_DISC_13, 3.6, 6.66, 0, 0.30, 0, 0),
-    BLACK_CLEAVER("칠흑의 양날 도끼", Category.FIGHTER, 3000, Items.NETHERITE_AXE, 4.0, 8.0, 0, 0, 0, 0),
+    BLACK_CLEAVER("칠흑의 양날 도끼", Category.FIGHTER, 3000, Items.NETHERITE_AXE, 4.5, 8.0, 0, 0, 0, 0),
     BLADE_OF_THE_RUINED_KING("몰락한 왕의 검", Category.FIGHTER, 3200, Items.IRON_SWORD, 4.0, 0, 0, 0.25, 0, 0),
     SUNDERED_SKY("갈라진 하늘", Category.FIGHTER, 3100, Items.GOLDEN_AXE, 4.5, 9.0, 0, 0, 0, 0),
     STERAKS_GAGE("스테락의 도전", Category.FIGHTER, 3200, Items.LEATHER, 0, 8.0, 0, 0, 0, 0),

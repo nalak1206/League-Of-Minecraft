@@ -20,6 +20,9 @@ import net.minecraft.world.phys.Vec3;
 
 /** Runtime effects for the first fighter legendary items. */
 public final class LegendaryItemEffects {
+    private static final float FULL_ATTACK_STRENGTH = 0.9f;
+    private static final int CLEAVER_MAX_STACKS = 6;
+    private static final double CLEAVER_ARMOR_REDUCTION_PER_STACK = 0.05;
     private static final Identifier CLEAVER_ARMOR_ID = Identifier.fromNamespaceAndPath("darius_skills", "black_cleaver_shred");
     private static final Map<UUID, Long> SPELLBLADE_ARMED = new HashMap<>();
     private static final Map<UUID, Long> SPELLBLADE_COOLDOWN = new HashMap<>();
@@ -39,15 +42,18 @@ public final class LegendaryItemEffects {
     }
 
     public static void onBasicAttack(ServerPlayer player, LivingEntity target) {
+        if (player.getAttackStrengthScale(0.5f) < FULL_ATTACK_STRENGTH) return;
         long now = System.currentTimeMillis();
         if (PlayerEconomy.owns(player, LolShopItem.TRINITY_FORCE)) {
+            player.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, 0, false, false));
             Long armedUntil = SPELLBLADE_ARMED.get(player.getUUID());
             if (armedUntil != null && armedUntil > now && SPELLBLADE_COOLDOWN.getOrDefault(player.getUUID(), 0L) <= now) {
-                float damage = (float) Math.max(1.0, player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.0);
+                double baseAttackDamage = Math.max(1.0,
+                        player.getAttributeValue(Attributes.ATTACK_DAMAGE) - PlayerEconomy.attackDamage(player));
+                float damage = (float) (baseAttackDamage * 2.0);
                 extraPhysical(player, target, damage);
                 SPELLBLADE_ARMED.remove(player.getUUID());
                 SPELLBLADE_COOLDOWN.put(player.getUUID(), now + 1_500);
-                player.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, 0, false, false));
                 player.level().playSound(null, target.blockPosition(), SoundEvents.TRIDENT_HIT, SoundSource.PLAYERS, 0.8f, 1.25f);
             }
         }
@@ -121,11 +127,13 @@ public final class LegendaryItemEffects {
 
     private static void applyCleaver(ServerPlayer player, LivingEntity target, long now) {
         CleaverState previous = CLEAVER.get(target.getUUID());
-        int stacks = previous != null && previous.expiresAt > now ? Math.min(5, previous.stacks + 1) : 1;
+        int stacks = previous != null && previous.expiresAt > now
+                ? Math.min(CLEAVER_MAX_STACKS, previous.stacks + 1) : 1;
         var armor = target.getAttribute(Attributes.ARMOR);
         if (armor != null) {
             armor.removeModifier(CLEAVER_ARMOR_ID);
-            armor.addTransientModifier(new AttributeModifier(CLEAVER_ARMOR_ID, -0.06 * stacks, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            armor.addTransientModifier(new AttributeModifier(CLEAVER_ARMOR_ID,
+                    -CLEAVER_ARMOR_REDUCTION_PER_STACK * stacks, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
         }
         CLEAVER.put(target.getUUID(), new CleaverState(target, stacks, now + 6_000));
         if (target.level() instanceof ServerLevel level)
@@ -136,6 +144,7 @@ public final class LegendaryItemEffects {
         Vec3 movement = target.getDeltaMovement();
         target.invulnerableTime = 0;
         target.hurtServer(player.level(), player.damageSources().playerAttack(player), damage);
+        target.invulnerableTime = 0;
         target.setDeltaMovement(movement);
     }
 
@@ -143,6 +152,7 @@ public final class LegendaryItemEffects {
         Vec3 movement = target.getDeltaMovement();
         target.invulnerableTime = 0;
         target.hurtServer(player.level(), player.damageSources().magic(), damage);
+        target.invulnerableTime = 0;
         target.setDeltaMovement(movement);
     }
 

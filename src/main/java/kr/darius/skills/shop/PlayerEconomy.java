@@ -80,6 +80,10 @@ public final class PlayerEconomy {
         return account(player).items.stream().mapToDouble(LolShopItem::abilityPower).sum();
     }
 
+    public static double attackDamage(ServerPlayer player) {
+        return account(player).items.stream().mapToDouble(LolShopItem::attackDamage).sum();
+    }
+
     public static boolean owns(ServerPlayer player, LolShopItem item) {
         return account(player).items.contains(item);
     }
