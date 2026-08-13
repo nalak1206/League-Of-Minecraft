@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import com.mojang.math.Transformation;
+import kr.darius.skills.mixin.DisplayAccessor;
+import kr.darius.skills.mixin.ItemDisplayAccessor;
 import kr.darius.skills.combat.CombatEngine;
 import kr.darius.skills.shop.LegendaryItemEffects;
 import kr.darius.skills.shop.PlayerEconomy;
@@ -27,12 +30,18 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /** PC League-inspired Yone P/Q/W/E/R implementation for the shared Z/X/C/V input layer. */
 public final class YoneSkills {
@@ -40,16 +49,22 @@ public final class YoneSkills {
     private static final long Q_STACK_DURATION_MS = 6_000;
     private static final long E_DURATION_MS = 5_000;
     private static final long E_MIN_RECAST_MS = 500;
-    private static final DustParticleOptions STEEL = new DustParticleOptions(0xD7E3EA, 1.05f);
-    private static final DustParticleOptions WIND = new DustParticleOptions(0x77D8E8, 1.35f);
-    private static final DustParticleOptions SPIRIT = new DustParticleOptions(0xB5164B, 1.45f);
-    private static final DustParticleOptions AZAKANA = new DustParticleOptions(0x2A0718, 1.75f);
+    private static final DustParticleOptions STEEL = new DustParticleOptions(0x91A8B8, 1.15f);
+    private static final DustParticleOptions STEEL_GLOW = new DustParticleOptions(0xDDE8EE, 1.75f);
+    private static final DustParticleOptions STORM_CORE = new DustParticleOptions(0x263A48, 1.7f);
+    private static final DustParticleOptions WIND = new DustParticleOptions(0xAAB7BE, 1.35f);
+    private static final DustParticleOptions SPIRIT = new DustParticleOptions(0x9A102F, 1.65f);
+    private static final DustParticleOptions CRIMSON_GLOW = new DustParticleOptions(0xE02B48, 2.0f);
+    private static final DustParticleOptions AZAKANA = new DustParticleOptions(0x21030D, 1.9f);
+    private static final DustParticleOptions VOID = new DustParticleOptions(0x08070D, 2.1f);
     private static final ResourceKey<DamageType> SOUL_UNBOUND_DAMAGE = ResourceKey.create(
             Registries.DAMAGE_TYPE, Identifier.fromNamespaceAndPath("darius_skills", "soul_unbound"));
 
     private static final Map<UUID, long[]> LAST_CAST = new HashMap<>();
     private static final Map<UUID, QState> Q_STATES = new HashMap<>();
     private static final Map<UUID, EState> E_STATES = new HashMap<>();
+    private static final Map<UUID, ShieldVfx> SHIELD_VFX = new HashMap<>();
+    private static final List<FateTrailVfx> FATE_TRAILS = new ArrayList<>();
     private static final Map<UUID, Long> ACTION_LOCK_UNTIL = new HashMap<>();
     private static final Map<UUID, Boolean> SECOND_BLADE = new HashMap<>();
     private static final List<PendingCast> PENDING_CASTS = new ArrayList<>();
@@ -68,6 +83,7 @@ public final class YoneSkills {
         Q_STATES.remove(player.getUUID());
         EState spirit = E_STATES.remove(player.getUUID());
         if (spirit != null) returnToBody(player, spirit);
+        SHIELD_VFX.remove(player.getUUID());
         ACTION_LOCK_UNTIL.remove(player.getUUID());
         PENDING_CASTS.removeIf(cast -> cast.player == player);
         SECOND_BLADE.remove(player.getUUID());
@@ -88,10 +104,12 @@ public final class YoneSkills {
     /** Returns true when the vanilla attack must be cancelled because the mixed second strike was dealt manually. */
     public static boolean basicAttack(ServerPlayer player, LivingEntity target) {
         if (isActionLocked(player) || player.getAttackStrengthScale(0.5f) < FULL_ATTACK_STRENGTH) return false;
+        boolean critical = isVanillaCritical(player);
         boolean spiritBlade = SECOND_BLADE.getOrDefault(player.getUUID(), false);
         SECOND_BLADE.put(player.getUUID(), !spiritBlade);
         if (!spiritBlade) {
             markSpiritDamage(player, target, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE));
+            steelBasicAttackVfx(player.level(), player, target, critical);
             return false;
         }
 
@@ -101,8 +119,7 @@ public final class YoneSkills {
         CombatEngine.deal(player, target, total * 0.5f, CombatEngine.DamageKind.MAGIC,
                 CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
         markSpiritDamage(player, target, total);
-        player.level().sendParticles(SPIRIT, target.getX(), target.getY() + 1.0, target.getZ(),
-                16, 0.3, 0.55, 0.3, 0.025);
+        azakanaBasicAttackVfx(player.level(), player, target, critical);
         player.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG,
                 SoundSource.PLAYERS, 0.7f, 1.45f);
         return true;
@@ -146,6 +163,7 @@ public final class YoneSkills {
                     CrowdControl.apply(target, CrowdControl.Type.AIRBORNE, 750);
                     target.setDeltaMovement(target.getDeltaMovement().x, 0.72, target.getDeltaMovement().z);
                     target.hurtMarked = true;
+                    airborneWindColumn(level, target);
                 }
             }
         }
@@ -160,6 +178,7 @@ public final class YoneSkills {
             int stacks = current != null && current.expiresAt > System.currentTimeMillis() ? current.stacks : 0;
             Q_STATES.put(player.getUUID(), new QState(Math.min(2, stacks + 1),
                     System.currentTimeMillis() + Q_STACK_DURATION_MS));
+            qStackCloud(level, player, Math.min(2, stacks + 1));
         }
         steelLine(level, player.position(), cast.forward, reach);
     }
@@ -182,7 +201,7 @@ public final class YoneSkills {
         ServerPlayer player = cast.player;
         ServerLevel level = player.level();
         int rank = rank(player, 2, 5);
-        List<LivingEntity> targets = coneTargets(player, cast.forward, 5.5, 0.74);
+        List<LivingEntity> targets = coneTargets(player, cast.forward, 5.5, 0.0);
         int hits = 0;
         for (LivingEntity target : targets) {
             float total = wBase(rank) + target.getMaxHealth() * wHealthRatio(rank);
@@ -198,8 +217,10 @@ public final class YoneSkills {
         if (hits > 0) {
             int amplifier = Math.min(4, Math.max(0, hits - 1));
             player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 30, amplifier, false, false));
+            shieldSphere(level, player, hits);
+            SHIELD_VFX.put(player.getUUID(), new ShieldVfx(player, hits, System.currentTimeMillis() + 1_500));
         }
-        drawConeTelegraph(level, player, cast.forward, 5.5, SPIRIT);
+        deepRedCleave(level, player, cast.forward, 5.5);
         level.sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX() + cast.forward.x * 2.2,
                 player.getY() + 1.0, player.getZ() + cast.forward.z * 2.2, 12, 1.5, 0.5, 1.5, 0.02);
         level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP,
@@ -221,13 +242,15 @@ public final class YoneSkills {
         if (forward == null) return;
         LegendaryItemEffects.onSkillInput(player);
         Vec3 body = player.position();
-        E_STATES.put(player.getUUID(), new EState(body, now, now + E_DURATION_MS, new HashMap<>()));
+        ArmorStand bodyEcho = createBodyEcho(player.level(), player, body);
+        E_STATES.put(player.getUUID(), new EState(body, now, now + E_DURATION_MS, new HashMap<>(), bodyEcho));
         SECOND_BLADE.put(player.getUUID(), false);
         cast[2] = now;
         lock(player, 225);
         dash(player, forward, 3.0);
         player.addEffect(new MobEffectInstance(MobEffects.SPEED, 105, 1, false, false));
         spiritBurst(player.level(), body, 55);
+        spiritAfterimage(player.level(), player, 1.0f);
         player.level().playSound(null, player.blockPosition(), SoundEvents.ENDERMAN_TELEPORT,
                 SoundSource.PLAYERS, 0.8f, 1.35f);
     }
@@ -242,7 +265,7 @@ public final class YoneSkills {
         cast[3] = now;
         lock(player, 1_200);
         PENDING_CASTS.add(new PendingCast(player, Skill.R, forward, now + 750, false));
-        drawUltLine(player.level(), player.position(), forward);
+        drawUltTelegraph(player.level(), player.position(), forward, 0.0);
         player.level().playSound(null, player.blockPosition(), SoundEvents.RESPAWN_ANCHOR_CHARGE,
                 SoundSource.PLAYERS, 0.8f, 0.62f);
     }
@@ -277,11 +300,10 @@ public final class YoneSkills {
             target.hurtMarked = true;
             markSpiritDamage(player, target, total);
         }
-        for (double d = 0; d <= 10; d += 0.35) {
-            Vec3 point = origin.add(cast.forward.scale(d)).add(0, 1.0, 0);
-            level.sendParticles(d % 0.7 < 0.2 ? SPIRIT : AZAKANA,
-                    point.x, point.y, point.z, 5, 0.3, 0.7, 0.3, 0.03);
-        }
+        fateSealedTrail(level, origin, cast.forward, 10.0, 1.0);
+        FATE_TRAILS.add(new FateTrailVfx(level, origin, cast.forward,
+                System.currentTimeMillis(), System.currentTimeMillis() + 520));
+        vacuumBurst(level, gather, targets.size());
         level.sendParticles(ParticleTypes.SWEEP_ATTACK, gather.x, gather.y + 1.0, gather.z,
                 35, 1.5, 1.0, 1.5, 0.05);
         level.playSound(null, player.blockPosition(), SoundEvents.ENDER_DRAGON_FLAP,
@@ -294,8 +316,23 @@ public final class YoneSkills {
         long now = System.currentTimeMillis();
         Q_STATES.entrySet().removeIf(entry -> entry.getValue().expiresAt <= now);
         ACTION_LOCK_UNTIL.entrySet().removeIf(entry -> entry.getValue() <= now);
+        SHIELD_VFX.entrySet().removeIf(entry -> {
+            ShieldVfx shield = entry.getValue();
+            if (!shield.player.isAlive() || shield.expiresAt <= now) return true;
+            shieldSphere(shield.player.level(), shield.player, shield.hits);
+            return false;
+        });
+        FATE_TRAILS.removeIf(trail -> {
+            if (trail.expiresAt <= now) return true;
+            double remaining = (trail.expiresAt - now) / (double) (trail.expiresAt - trail.startedAt);
+            fateSealedTrail(trail.level, trail.origin, trail.forward, 10.0, remaining);
+            return false;
+        });
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            QState qState = Q_STATES.get(player.getUUID());
+            if (qState != null && qState.expiresAt > now && player.level().getGameTime() % 3 == 0)
+                qStackCloud(player.level(), player, qState.stacks);
             if (isActionLocked(player)) {
                 Vec3 movement = player.getDeltaMovement();
                 player.setDeltaMovement(0, Math.min(0, movement.y), 0);
@@ -311,7 +348,12 @@ public final class YoneSkills {
                 continue;
             }
             if (now < cast.executeAt) {
-                if (cast.skill == Skill.R) drawUltLine(cast.player.level(), cast.player.position(), cast.forward);
+                if (cast.skill == Skill.R) {
+                    double progress = Math.max(0.0, Math.min(1.0,
+                            1.0 - (cast.executeAt - now) / 750.0));
+                    drawUltTelegraph(cast.player.level(), cast.player.position(), cast.forward, progress);
+                    fateChargeVfx(cast.player.level(), cast.player, cast.forward);
+                }
                 continue;
             }
             if (cast.skill == Skill.Q) executeQ(cast);
@@ -325,11 +367,15 @@ public final class YoneSkills {
             var entry = spirits.next();
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             if (player == null || !player.isAlive()) {
+                discardSpiritVisuals(entry.getValue());
                 spirits.remove();
                 continue;
             }
             EState state = entry.getValue();
-            drawSpiritLink(player.level(), player.position(), state.origin);
+            double remaining = Math.max(0.0, (state.endsAt - now) / (double) E_DURATION_MS);
+            drawSpiritLink(player.level(), player.position(), state.origin, remaining);
+            spiritAfterimage(player.level(), player, (float) remaining);
+            updateSpiritMarks(player, state, now);
             if (now >= state.endsAt) {
                 spirits.remove();
                 returnToBody(player, state);
@@ -342,6 +388,9 @@ public final class YoneSkills {
         if (state == null || damage <= 0) return;
         state.damage.merge(target.getUUID(), new Mark(target, damage),
                 (oldMark, added) -> new Mark(target, oldMark.damage + added.damage));
+        SpiritMarkVisual visual = state.visuals.computeIfAbsent(target.getUUID(), ignored ->
+                createSpiritMark(player.level(), target));
+        updateSpiritMark(player, state, target, visual, System.currentTimeMillis());
         player.level().sendParticles(SPIRIT, target.getX(), target.getY() + 1.8, target.getZ(),
                 5, 0.2, 0.2, 0.2, 0.01);
     }
@@ -357,7 +406,9 @@ public final class YoneSkills {
             CombatEngine.deal(player, mark.target, source, mark.damage * repeatRatio,
                     CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT, true);
             spiritBurst(player.level(), mark.target.position().add(0, 1, 0), 26);
+            snapBackSlash(player.level(), mark.target);
         }
+        discardSpiritVisuals(state);
         Vec3 from = player.position();
         teleportSafely(player, state.origin);
         drawReturnTrail(player.level(), from, state.origin);
@@ -443,12 +494,279 @@ public final class YoneSkills {
             player.teleportTo(destination.x, destination.y, destination.z);
     }
 
+    private static boolean isVanillaCritical(ServerPlayer player) {
+        return player.fallDistance > 0.0f && !player.onGround() && !player.isInWater()
+                && !player.isSprinting() && !player.isPassenger();
+    }
+
+    private static void steelBasicAttackVfx(ServerLevel level, ServerPlayer player, LivingEntity target,
+                                             boolean critical) {
+        Vec3 from = player.position().add(0, 1.15, 0);
+        Vec3 to = target.position().add(0, target.getBbHeight() * 0.55, 0);
+        int multiplier = critical ? 3 : 2;
+        drawParticleLine(level, from, to, STEEL, 9, multiplier);
+        level.sendParticles(STEEL_GLOW, to.x, to.y, to.z, critical ? 24 : 14,
+                critical ? 0.42 : 0.28, critical ? 0.52 : 0.35, critical ? 0.42 : 0.28, 0.035);
+        level.sendParticles(ParticleTypes.CRIT, to.x, to.y, to.z, critical ? 20 : 12,
+                critical ? 0.38 : 0.25, critical ? 0.52 : 0.35, critical ? 0.38 : 0.25, 0.08);
+    }
+
+    private static void azakanaBasicAttackVfx(ServerLevel level, ServerPlayer player, LivingEntity target,
+                                               boolean critical) {
+        Vec3 from = player.position().add(0, 1.25, 0);
+        Vec3 to = target.position().add(0, target.getBbHeight() * 0.55, 0);
+        Vec3 right = to.subtract(from).cross(new Vec3(0, 1, 0)).normalize().scale(0.28);
+        drawParticleLine(level, from.add(right), to.add(right), SPIRIT, 11, critical ? 5 : 3);
+        drawParticleLine(level, from.subtract(right), to.subtract(right), AZAKANA, 11, critical ? 3 : 2);
+        level.sendParticles(CRIMSON_GLOW, to.x, to.y, to.z, critical ? 32 : 20,
+                critical ? 0.6 : 0.4, critical ? 0.75 : 0.5, critical ? 0.6 : 0.4, 0.045);
+        level.sendParticles(ParticleTypes.SMOKE, to.x, to.y, to.z, critical ? 24 : 16,
+                critical ? 0.54 : 0.36, critical ? 0.68 : 0.45, critical ? 0.54 : 0.36, 0.035);
+    }
+
+    private static void drawParticleLine(ServerLevel level, Vec3 from, Vec3 to,
+                                         DustParticleOptions dust, int steps, int count) {
+        Vec3 delta = to.subtract(from);
+        for (int i = 0; i <= steps; i++) {
+            Vec3 point = from.add(delta.scale(i / (double) steps));
+            level.sendParticles(dust, point.x, point.y, point.z, count, 0.04, 0.04, 0.04, 0);
+        }
+    }
+
+    private static void qStackCloud(ServerLevel level, ServerPlayer player, int stacks) {
+        double time = level.getGameTime() * (0.22 + stacks * 0.06);
+        int points = 8 + stacks * 6;
+        for (int i = 0; i < points; i++) {
+            double angle = time + Math.PI * 2 * i / points;
+            double radius = 0.55 + stacks * 0.16 + Math.sin(time + i) * 0.08;
+            double x = player.getX() + Math.cos(angle) * radius;
+            double z = player.getZ() + Math.sin(angle) * radius;
+            level.sendParticles(i % 3 == 0 ? STORM_CORE : WIND, x, player.getY() + 0.12, z,
+                    1, 0.06, 0.03, 0.06, 0);
+        }
+    }
+
+    private static void airborneWindColumn(ServerLevel level, LivingEntity target) {
+        for (double y = 0.0; y <= 3.2; y += 0.24) {
+            double angle = y * 4.8 + level.getGameTime() * 0.2;
+            double radius = 0.75 - Math.min(0.45, y * 0.11);
+            for (int strand = 0; strand < 3; strand++) {
+                double a = angle + strand * Math.PI * 2 / 3;
+                double x = target.getX() + Math.cos(a) * radius;
+                double z = target.getZ() + Math.sin(a) * radius;
+                level.sendParticles(strand == 0 ? STORM_CORE : WIND, x, target.getY() + y, z,
+                        2, 0.05, 0.08, 0.05, 0.015);
+            }
+        }
+    }
+
+    private static void deepRedCleave(ServerLevel level, ServerPlayer player, Vec3 forward, double reach) {
+        Vec3 right = new Vec3(-forward.z, 0, forward.x);
+        for (int angle = -90; angle <= 90; angle += 3) {
+            double radians = Math.toRadians(angle);
+            Vec3 direction = forward.scale(Math.cos(radians)).add(right.scale(Math.sin(radians)));
+            for (double radius = 2.0; radius <= reach; radius += 0.55) {
+                Vec3 p = player.position().add(direction.scale(radius)).add(0, 0.65 + radius * 0.08, 0);
+                DustParticleOptions color = radius > reach - 0.8 ? AZAKANA : SPIRIT;
+                level.sendParticles(color, p.x, p.y, p.z, radius > reach - 0.8 ? 3 : 1,
+                        0.05, 0.09, 0.05, 0);
+            }
+        }
+    }
+
+    private static void shieldSphere(ServerLevel level, ServerPlayer player, int hits) {
+        int points = Math.min(52, 18 + hits * 7);
+        double time = level.getGameTime() * 0.18;
+        double radius = 1.0 + Math.min(0.35, hits * 0.07);
+        DustParticleOptions bright = hits >= 3 ? CRIMSON_GLOW : SPIRIT;
+        for (int i = 0; i < points; i++) {
+            double phi = Math.acos(1 - 2 * (i + 0.5) / points);
+            double theta = Math.PI * (1 + Math.sqrt(5)) * i + time;
+            double x = player.getX() + Math.cos(theta) * Math.sin(phi) * radius;
+            double y = player.getY() + 1.0 + Math.cos(phi) * radius;
+            double z = player.getZ() + Math.sin(theta) * Math.sin(phi) * radius;
+            level.sendParticles(i % 4 == 0 ? bright : AZAKANA, x, y, z, 1, 0.02, 0.02, 0.02, 0);
+        }
+    }
+
+    private static ArmorStand createBodyEcho(ServerLevel level, ServerPlayer player, Vec3 origin) {
+        ArmorStand body = new ArmorStand(level, origin.x, origin.y, origin.z);
+        body.setNoGravity(true);
+        body.setInvulnerable(true);
+        body.setSilent(true);
+        body.setShowArms(true);
+        body.setNoBasePlate(true);
+        body.addTag("lol_yone_body_echo");
+        body.setYRot(player.getYRot());
+        body.setYBodyRot(player.getYRot());
+        body.setYHeadRot(player.getYHeadRot());
+        body.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.CHAINMAIL_HELMET));
+        body.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.CHAINMAIL_CHESTPLATE));
+        body.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.CHAINMAIL_LEGGINGS));
+        body.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.CHAINMAIL_BOOTS));
+        body.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
+        body.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.NETHERITE_SWORD));
+        level.addFreshEntity(body);
+        return body;
+    }
+
+    private static void spiritAfterimage(ServerLevel level, ServerPlayer player, float remaining) {
+        Vec3 backward = flatLook(player);
+        if (backward == null) backward = new Vec3(0, 0, 1);
+        backward = backward.scale(-0.45);
+        int trails = 3;
+        for (int i = 1; i <= trails; i++) {
+            Vec3 point = player.position().add(backward.scale(i)).add(0, 1.0, 0);
+            int count = Math.max(2, (int) (7 * remaining));
+            level.sendParticles(i == trails ? AZAKANA : SPIRIT, point.x, point.y, point.z,
+                    count, 0.25, 0.65, 0.25, 0.02);
+        }
+    }
+
+    private static SpiritMarkVisual createSpiritMark(ServerLevel level, LivingEntity target) {
+        Display.ItemDisplay display = new Display.ItemDisplay(EntityTypes.ITEM_DISPLAY, level);
+        ((ItemDisplayAccessor) display).darius$setItemStack(new ItemStack(Items.REDSTONE));
+        ((DisplayAccessor) display).darius$setTransformation(new Transformation(
+                new Vector3f(0, 0, 0), new Quaternionf(), new Vector3f(0.55f, 0.55f, 0.55f), new Quaternionf()));
+        display.setGlowingTag(true);
+        display.setPos(target.getX(), target.getY() + target.getBbHeight() + 0.65, target.getZ());
+        level.addFreshEntity(display);
+        return new SpiritMarkVisual(display, target);
+    }
+
+    private static void updateSpiritMarks(ServerPlayer player, EState state, long now) {
+        Iterator<Map.Entry<UUID, SpiritMarkVisual>> iterator = state.visuals.entrySet().iterator();
+        while (iterator.hasNext()) {
+            SpiritMarkVisual visual = iterator.next().getValue();
+            if (!visual.target.isAlive()) {
+                visual.display.discard();
+                iterator.remove();
+                continue;
+            }
+            updateSpiritMark(player, state, visual.target, visual, now);
+        }
+    }
+
+    private static void updateSpiritMark(ServerPlayer player, EState state, LivingEntity target,
+                                         SpiritMarkVisual visual, long now) {
+        Mark mark = state.damage.get(target.getUUID());
+        if (mark == null) return;
+        int rank = rank(player, 3, 5);
+        float stored = mark.damage * (0.25f + (rank - 1) * 0.025f);
+        boolean execute = stored >= target.getHealth();
+        ((ItemDisplayAccessor) visual.display).darius$setItemStack(
+                new ItemStack(execute ? Items.NETHER_WART : Items.REDSTONE));
+        double pulse = 0.5 + 0.5 * Math.sin(now * (execute ? 0.025 : 0.010));
+        float scale = (float) ((execute ? 1.1 : 0.55) + pulse * (execute ? 0.5 : 0.12));
+        Quaternionf rotation = new Quaternionf().rotateY((float) (now * (execute ? 0.008 : 0.003)));
+        ((DisplayAccessor) visual.display).darius$setTransformation(new Transformation(
+                new Vector3f(0, 0, 0), rotation, new Vector3f(scale, scale, scale), new Quaternionf()));
+        visual.display.setPos(target.getX(), target.getY() + target.getBbHeight() + 0.65, target.getZ());
+        if (execute && target.level() instanceof ServerLevel level) {
+            level.sendParticles(CRIMSON_GLOW, target.getX(), target.getY() + target.getBbHeight() + 0.65,
+                    target.getZ(), 8, 0.4, 0.35, 0.4, 0.04);
+            level.sendParticles(ParticleTypes.SMOKE, target.getX(), target.getY() + target.getBbHeight() + 0.65,
+                    target.getZ(), 5, 0.32, 0.28, 0.32, 0.025);
+        }
+    }
+
+    private static void discardSpiritVisuals(EState state) {
+        if (state.bodyEcho != null) state.bodyEcho.discard();
+        state.visuals.values().forEach(visual -> visual.display.discard());
+        state.visuals.clear();
+    }
+
+    private static void snapBackSlash(ServerLevel level, LivingEntity target) {
+        Vec3 center = target.position().add(0, target.getBbHeight() * 0.55, 0);
+        for (int i = -8; i <= 8; i++) {
+            double offset = i * 0.13;
+            level.sendParticles(i % 2 == 0 ? CRIMSON_GLOW : SPIRIT,
+                    center.x + offset, center.y + offset * 0.7, center.z, 3, 0.08, 0.08, 0.08, 0);
+            level.sendParticles(AZAKANA, center.x - offset, center.y + offset * 0.7, center.z,
+                    2, 0.06, 0.06, 0.06, 0);
+        }
+    }
+
+    private static void fateChargeVfx(ServerLevel level, ServerPlayer player, Vec3 forward) {
+        Vec3 center = player.position().add(0, 1.1, 0);
+        Vec3 right = new Vec3(-forward.z, 0, forward.x);
+        for (int i = 0; i < 12; i++) {
+            double angle = Math.PI * 2 * i / 12 + level.getGameTime() * 0.18;
+            Vec3 offset = right.scale(Math.cos(angle) * 0.8).add(0, Math.sin(angle) * 0.8, 0);
+            DustParticleOptions color = i % 2 == 0 ? STEEL_GLOW : CRIMSON_GLOW;
+            level.sendParticles(color, center.x + offset.x, center.y + offset.y, center.z + offset.z,
+                    2, 0.04, 0.04, 0.04, 0);
+        }
+    }
+
+    private static void fateSealedTrail(ServerLevel level, Vec3 origin, Vec3 forward,
+                                        double reach, double intensity) {
+        Vec3 right = new Vec3(-forward.z, 0, forward.x);
+        int laneCount = intensity > 0.65 ? 3 : intensity > 0.3 ? 2 : 1;
+        for (double d = 0; d <= reach; d += intensity > 0.6 ? 0.2 : 0.34) {
+            double t = d / reach;
+            Vec3 base = origin.add(forward.scale(d)).add(0, 0.25 + Math.sin(t * Math.PI) * 0.65, 0);
+            for (double side : new double[]{-1.75, 1.75}) {
+                Vec3 outer = base.add(right.scale(side));
+                level.sendParticles(CRIMSON_GLOW, outer.x, outer.y, outer.z,
+                        laneCount + 1, 0.12, 0.18, 0.12, 0.015);
+            }
+            for (double side : new double[]{-0.82, 0.82}) {
+                Vec3 inner = base.add(right.scale(side));
+                level.sendParticles(SPIRIT, inner.x, inner.y, inner.z,
+                        laneCount, 0.10, 0.16, 0.10, 0.012);
+            }
+            Vec3 steel = base.add(right.scale(-0.18));
+            level.sendParticles(STEEL_GLOW, steel.x, steel.y + 0.08, steel.z,
+                    laneCount + 1, 0.06, 0.12, 0.06, 0.008);
+            level.sendParticles(AZAKANA, base.x, base.y, base.z,
+                    laneCount + 1, 0.18, 0.20, 0.18, 0.018);
+            if (intensity > 0.5 && ((int) (d * 10)) % 7 == 0)
+                level.sendParticles(ParticleTypes.SMOKE, base.x, base.y + 0.25, base.z,
+                        3, 0.55, 0.32, 0.55, 0.025);
+        }
+
+        if (intensity > 0.55) {
+            Vec3 end = origin.add(forward.scale(reach)).add(0, 0.85, 0);
+            for (int angle = -90; angle <= 90; angle += 5) {
+                double radians = Math.toRadians(angle);
+                Vec3 redArc = end.subtract(forward.scale(Math.cos(radians) * 1.45))
+                        .add(right.scale(Math.sin(radians) * 2.5));
+                level.sendParticles(angle % 10 == 0 ? CRIMSON_GLOW : SPIRIT,
+                        redArc.x, redArc.y, redArc.z, 3, 0.08, 0.12, 0.08, 0.01);
+                if (angle % 15 == 0) {
+                    Vec3 steelArc = end.subtract(forward.scale(Math.cos(radians) * 0.9))
+                            .add(right.scale(Math.sin(radians) * 1.45)).add(0, 0.2, 0);
+                    level.sendParticles(STEEL_GLOW, steelArc.x, steelArc.y, steelArc.z,
+                            2, 0.05, 0.08, 0.05, 0.005);
+                }
+            }
+        }
+    }
+
+    private static void vacuumBurst(ServerLevel level, Vec3 center, int targets) {
+        int rings = 3 + Math.min(4, targets);
+        for (int ring = 0; ring < rings; ring++) {
+            double radius = 2.6 - ring * 0.35;
+            for (int i = 0; i < 28; i++) {
+                double angle = Math.PI * 2 * i / 28 + ring * 0.35;
+                double x = center.x + Math.cos(angle) * radius;
+                double z = center.z + Math.sin(angle) * radius;
+                level.sendParticles(i % 3 == 0 ? STORM_CORE : AZAKANA,
+                        x, center.y + ring * 0.25, z, 2, 0.08, 0.12, 0.08, 0.04);
+            }
+        }
+        for (double y = 0; y <= 3.5; y += 0.2)
+            level.sendParticles(y % 0.4 < 0.1 ? CRIMSON_GLOW : STORM_CORE,
+                    center.x, center.y + y, center.z, 8, 0.45 - y * 0.07, 0.08, 0.45 - y * 0.07, 0.04);
+    }
+
     private static List<LivingEntity> lineTargets(ServerPlayer player, Vec3 origin, Vec3 forward,
                                                    double reach, double width) {
         List<LivingEntity> result = new ArrayList<>();
         for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class,
                 player.getBoundingBox().inflate(reach + 2, 3, reach + 2),
-                entity -> entity != player && entity.isAlive())) {
+                entity -> entity != player && entity.isAlive() && !isYoneBodyEcho(entity))) {
             Vec3 offset = target.position().subtract(origin);
             double along = offset.x * forward.x + offset.z * forward.z;
             double side = Math.abs(offset.x * forward.z - offset.z * forward.x);
@@ -462,12 +780,18 @@ public final class YoneSkills {
         List<LivingEntity> result = new ArrayList<>();
         for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class,
                 player.getBoundingBox().inflate(reach, 2.5, reach),
-                entity -> entity != player && entity.isAlive())) {
+                entity -> entity != player && entity.isAlive() && !isYoneBodyEcho(entity))) {
             Vec3 flat = target.position().subtract(player.position()).multiply(1, 0, 1);
             if (flat.length() <= reach && flat.lengthSqr() > 0.01 && flat.normalize().dot(forward) >= dot)
                 result.add(target);
         }
         return result;
+    }
+
+    private static boolean isYoneBodyEcho(LivingEntity entity) {
+        for (EState state : E_STATES.values())
+            if (state.bodyEcho == entity) return true;
+        return false;
     }
 
     private static void drawQTelegraph(ServerLevel level, Vec3 origin, Vec3 forward, boolean empowered) {
@@ -480,25 +804,39 @@ public final class YoneSkills {
     }
 
     private static void steelLine(ServerLevel level, Vec3 origin, Vec3 forward, double reach) {
+        Vec3 right = new Vec3(-forward.z, 0, forward.x);
         for (double d = 0.25; d <= reach; d += 0.22) {
-            Vec3 p = origin.add(forward.scale(d)).add(0, 1.0, 0);
-            level.sendParticles(STEEL, p.x, p.y, p.z, 2, 0.08, 0.12, 0.08, 0);
+            double spread = 0.08 + (d / reach) * 0.62;
+            Vec3 center = origin.add(forward.scale(d)).add(0, 1.0, 0);
+            level.sendParticles(d > reach * 0.65 ? STEEL_GLOW : STEEL,
+                    center.x, center.y, center.z, 2, 0.05, 0.10, 0.05, 0);
+            for (double side : new double[]{-spread, spread}) {
+                Vec3 edge = center.add(right.scale(side));
+                level.sendParticles(WIND, edge.x, edge.y, edge.z, 1, 0.04, 0.08, 0.04, 0);
+            }
         }
     }
 
     private static void windTrail(ServerLevel level, Vec3 origin, Vec3 forward, double reach) {
         Vec3 right = new Vec3(-forward.z, 0, forward.x);
-        for (double d = 0.4; d <= reach; d += 0.35) {
-            double wave = Math.sin(d * 2.4) * 0.7;
-            Vec3 p = origin.add(forward.scale(d)).add(right.scale(wave)).add(0, 0.8, 0);
-            level.sendParticles(WIND, p.x, p.y, p.z, 5, 0.25, 0.45, 0.25, 0.02);
+        for (double d = 0.25; d <= reach; d += 0.24) {
+            Vec3 core = origin.add(forward.scale(d)).add(0, 0.85, 0);
+            level.sendParticles(STORM_CORE, core.x, core.y, core.z, 4, 0.18, 0.28, 0.18, 0.015);
+            for (int strand = 0; strand < 3; strand++) {
+                double angle = d * 2.9 + strand * Math.PI * 2 / 3;
+                double radius = 0.55 + Math.sin(d * 0.9) * 0.15;
+                Vec3 spiral = core.add(right.scale(Math.cos(angle) * radius))
+                        .add(0, Math.sin(angle) * radius, 0);
+                level.sendParticles(WIND, spiral.x, spiral.y, spiral.z,
+                        3, 0.16, 0.22, 0.16, 0.02);
+            }
         }
     }
 
     private static void drawConeTelegraph(ServerLevel level, ServerPlayer player, Vec3 forward,
                                            double reach, DustParticleOptions dust) {
         Vec3 right = new Vec3(-forward.z, 0, forward.x);
-        for (int angle = -40; angle <= 40; angle += 5) {
+        for (int angle = -90; angle <= 90; angle += 6) {
             double radians = Math.toRadians(angle);
             Vec3 direction = forward.scale(Math.cos(radians)).add(right.scale(Math.sin(radians)));
             for (double d = 1.0; d <= reach; d += 0.9) {
@@ -508,13 +846,14 @@ public final class YoneSkills {
         }
     }
 
-    private static void drawSpiritLink(ServerLevel level, Vec3 from, Vec3 to) {
+    private static void drawSpiritLink(ServerLevel level, Vec3 from, Vec3 to, double remaining) {
         Vec3 link = to.subtract(from);
         int steps = Math.max(4, Math.min(24, (int) (link.length() * 2)));
+        double pulse = 0.5 + 0.5 * Math.sin(level.getGameTime() * (0.25 + (1.0 - remaining) * 1.25));
         for (int i = 1; i <= steps; i++) {
             Vec3 point = from.add(link.scale(i / (double) steps)).add(0, 1, 0);
-            level.sendParticles(i % 2 == 0 ? SPIRIT : AZAKANA, point.x, point.y, point.z,
-                    1, 0.04, 0.04, 0.04, 0);
+            level.sendParticles(i % 2 == 0 ? SPIRIT : CRIMSON_GLOW, point.x, point.y, point.z,
+                    pulse > 0.45 ? 2 : 1, 0.04 + pulse * 0.04, 0.04, 0.04 + pulse * 0.04, 0);
         }
     }
 
@@ -532,13 +871,31 @@ public final class YoneSkills {
         level.sendParticles(AZAKANA, point.x, point.y, point.z, count / 2, 0.45, 0.65, 0.45, 0.035);
     }
 
-    private static void drawUltLine(ServerLevel level, Vec3 origin, Vec3 forward) {
+    private static void drawUltTelegraph(ServerLevel level, Vec3 origin, Vec3 forward, double progress) {
         Vec3 right = new Vec3(-forward.z, 0, forward.x);
-        for (double d = 0.5; d <= 10; d += 0.45) {
-            for (double side : new double[]{-2.25, 0, 2.25}) {
+        int edgeCount = progress > 0.65 ? 3 : progress > 0.25 ? 2 : 1;
+        for (double d = 0.5; d <= 10; d += 0.34) {
+            for (double side : new double[]{-2.25, 2.25}) {
+                Vec3 point = origin.add(forward.scale(d)).add(right.scale(side)).add(0, 0.12, 0);
+                level.sendParticles(progress > 0.45 ? CRIMSON_GLOW : SPIRIT,
+                        point.x, point.y, point.z, edgeCount, 0.025, 0.025, 0.025, 0);
+            }
+            if (((int) (d * 10)) % 7 == 0) {
+                for (double side = -1.65; side <= 1.65; side += 0.82) {
+                    Vec3 floor = origin.add(forward.scale(d)).add(right.scale(side)).add(0, 0.08, 0);
+                    level.sendParticles(VOID, floor.x, floor.y, floor.z,
+                            progress > 0.7 ? 2 : 1, 0.17, 0.025, 0.17, 0);
+                    if (progress < 0.55)
+                        level.sendParticles(ParticleTypes.SMOKE, floor.x, floor.y + 0.08, floor.z,
+                                1, 0.12, 0.03, 0.12, 0.005);
+                }
+            }
+        }
+        for (double side = -2.25; side <= 2.25; side += 0.3) {
+            for (double d : new double[]{0.5, 10.0}) {
                 Vec3 point = origin.add(forward.scale(d)).add(right.scale(side)).add(0, 0.15, 0);
-                level.sendParticles(side == 0 ? SPIRIT : AZAKANA,
-                        point.x, point.y, point.z, 1, 0.03, 0.03, 0.03, 0);
+                level.sendParticles(CRIMSON_GLOW, point.x, point.y, point.z,
+                        edgeCount, 0.02, 0.02, 0.02, 0);
             }
         }
     }
@@ -547,5 +904,14 @@ public final class YoneSkills {
     private record PendingCast(ServerPlayer player, Skill skill, Vec3 forward, long executeAt, boolean empowered) {}
     private record QState(int stacks, long expiresAt) {}
     private record Mark(LivingEntity target, float damage) {}
-    private record EState(Vec3 origin, long startedAt, long endsAt, Map<UUID, Mark> damage) {}
+    private record EState(Vec3 origin, long startedAt, long endsAt, Map<UUID, Mark> damage,
+                          ArmorStand bodyEcho, Map<UUID, SpiritMarkVisual> visuals) {
+        EState(Vec3 origin, long startedAt, long endsAt, Map<UUID, Mark> damage, ArmorStand bodyEcho) {
+            this(origin, startedAt, endsAt, damage, bodyEcho, new HashMap<>());
+        }
+    }
+    private record SpiritMarkVisual(Display.ItemDisplay display, LivingEntity target) {}
+    private record ShieldVfx(ServerPlayer player, int hits, long expiresAt) {}
+    private record FateTrailVfx(ServerLevel level, Vec3 origin, Vec3 forward,
+                                long startedAt, long expiresAt) {}
 }
