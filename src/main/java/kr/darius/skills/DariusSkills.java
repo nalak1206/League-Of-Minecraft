@@ -106,6 +106,8 @@ public final class DariusSkills implements ModInitializer {
     @Override
     public void onInitialize() {
         PayloadTypeRegistry.serverboundPlay().register(SkillPayload.TYPE, SkillPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(
+                YoneAttackAnimationPayload.TYPE, YoneAttackAnimationPayload.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(SkillPayload.TYPE, (payload, context) ->
                 ChampionManager.cast(context.player(), payload.skill()));
         ChampionManager.initialize();

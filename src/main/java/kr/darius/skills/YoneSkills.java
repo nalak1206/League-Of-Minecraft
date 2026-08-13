@@ -14,6 +14,7 @@ import kr.darius.skills.mixin.ItemDisplayAccessor;
 import kr.darius.skills.combat.CombatEngine;
 import kr.darius.skills.shop.LegendaryItemEffects;
 import kr.darius.skills.shop.PlayerEconomy;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -68,6 +69,7 @@ public final class YoneSkills {
     private static final Map<UUID, ShieldVfx> SHIELD_VFX = new HashMap<>();
     private static final List<FateTrailVfx> FATE_TRAILS = new ArrayList<>();
     private static final Map<UUID, Long> ACTION_LOCK_UNTIL = new HashMap<>();
+    private static final Map<UUID, Long> Q_POSE_UNTIL = new HashMap<>();
     private static final Map<UUID, Boolean> SECOND_BLADE = new HashMap<>();
     private static final List<PendingCast> PENDING_CASTS = new ArrayList<>();
 
@@ -119,6 +121,7 @@ public final class YoneSkills {
         if (spirit != null) returnToBody(player, spirit);
         SHIELD_VFX.remove(player.getUUID());
         ACTION_LOCK_UNTIL.remove(player.getUUID());
+        Q_POSE_UNTIL.remove(player.getUUID());
         PENDING_CASTS.removeIf(cast -> cast.player == player);
         SECOND_BLADE.remove(player.getUUID());
         player.stopUsingItem();
@@ -148,7 +151,7 @@ public final class YoneSkills {
             CombatEngine.deal(player, target, total, CombatEngine.DamageKind.PHYSICAL,
                     CombatEngine.KnockbackPolicy.VANILLA);
             markSpiritDamage(player, target, total);
-            player.swing(InteractionHand.OFF_HAND, true);
+            playBladeSwing(player, InteractionHand.OFF_HAND);
             steelBasicAttackVfx(player.level(), player, target, critical);
             player.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG,
                     SoundSource.PLAYERS, 0.68f, 1.15f);
@@ -161,7 +164,7 @@ public final class YoneSkills {
         CombatEngine.deal(player, target, total * 0.5f, CombatEngine.DamageKind.MAGIC,
                 CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
         markSpiritDamage(player, target, total);
-        player.swing(InteractionHand.MAIN_HAND, true);
+        playBladeSwing(player, InteractionHand.MAIN_HAND);
         azakanaBasicAttackVfx(player.level(), player, target, critical);
         player.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG,
                 SoundSource.PLAYERS, 0.7f, 1.45f);
@@ -181,21 +184,21 @@ public final class YoneSkills {
         QState state = Q_STATES.get(player.getUUID());
         boolean tornado = state != null && state.expiresAt > now && state.stacks >= 2;
         LegendaryItemEffects.onSkillInput(player);
-        long castTime = scaledCastTime(player, 350, 175);
         cast[1] = now;
-        lock(player, castTime);
-        PENDING_CASTS.add(new PendingCast(player, Skill.Q, forward, now + castTime, tornado));
         player.startUsingItem(InteractionHand.OFF_HAND);
+        Q_POSE_UNTIL.put(player.getUUID(), now + 140);
         drawQTelegraph(player.level(), player.position(), forward, tornado);
         player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP,
                 SoundSource.PLAYERS, 0.55f, tornado ? 0.75f : 1.45f);
+        // Q damage, dash and crowd control resolve on the input tick. The short
+        // off-hand use state only preserves the steel-sword spear pose visually.
+        executeQ(new PendingCast(player, Skill.Q, forward, now, tornado));
     }
 
     private static void executeQ(PendingCast cast) {
         ServerPlayer player = cast.player;
         ServerLevel level = player.level();
-        player.stopUsingItem();
-        player.swing(InteractionHand.OFF_HAND, true);
+        playBladeSwing(player, InteractionHand.OFF_HAND);
         int rank = rank(player, 1, 5);
         float damage = (float) (qBase(rank) + player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.05);
         double reach = cast.empowered ? 10.5 : 4.5;
@@ -365,6 +368,15 @@ public final class YoneSkills {
         long now = System.currentTimeMillis();
         Q_STATES.entrySet().removeIf(entry -> entry.getValue().expiresAt <= now);
         ACTION_LOCK_UNTIL.entrySet().removeIf(entry -> entry.getValue() <= now);
+        Q_POSE_UNTIL.entrySet().removeIf(entry -> {
+            if (entry.getValue() > now) return false;
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            if (player != null && player.isUsingItem()
+                    && player.getUsedItemHand() == InteractionHand.OFF_HAND
+                    && player.getUseItem().is(DariusSkills.YONE_STEEL_SWORD))
+                player.stopUsingItem();
+            return true;
+        });
         SHIELD_VFX.entrySet().removeIf(entry -> {
             ShieldVfx shield = entry.getValue();
             if (!shield.player.isAlive() || shield.expiresAt <= now) return true;
@@ -548,6 +560,13 @@ public final class YoneSkills {
     private static boolean isVanillaCritical(ServerPlayer player) {
         return player.fallDistance > 0.0f && !player.onGround() && !player.isInWater()
                 && !player.isSprinting() && !player.isPassenger();
+    }
+
+    private static void playBladeSwing(ServerPlayer player, InteractionHand hand) {
+        player.swing(hand, true);
+        if (ServerPlayNetworking.canSend(player, YoneAttackAnimationPayload.TYPE))
+            ServerPlayNetworking.send(player,
+                    new YoneAttackAnimationPayload(hand == InteractionHand.OFF_HAND));
     }
 
     private static void steelBasicAttackVfx(ServerLevel level, ServerPlayer player, LivingEntity target,
