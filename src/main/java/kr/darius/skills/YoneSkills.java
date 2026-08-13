@@ -92,13 +92,13 @@ public final class YoneSkills {
         if (!displacedOffhand.isEmpty() && !isYoneWeapon(displacedOffhand))
             player.getInventory().add(displacedOffhand.copy());
         removeYoneWeapons(player);
-        player.getInventory().setItem(0, new ItemStack(DariusSkills.YONE_AZAKANA_SWORD));
-        player.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(DariusSkills.YONE_STEEL_SWORD));
+        player.getInventory().setItem(0, new ItemStack(DariusSkills.YONE_STEEL_SWORD));
+        player.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(DariusSkills.YONE_AZAKANA_SWORD));
     }
 
     private static void enforceDualBlades(ServerPlayer player) {
-        boolean correct = player.getInventory().getItem(0).is(DariusSkills.YONE_AZAKANA_SWORD)
-                && player.getOffhandItem().is(DariusSkills.YONE_STEEL_SWORD);
+        boolean correct = player.getInventory().getItem(0).is(DariusSkills.YONE_STEEL_SWORD)
+                && player.getOffhandItem().is(DariusSkills.YONE_AZAKANA_SWORD);
         if (!correct) installDualBlades(player);
         if (player.getInventory().getSelectedSlot() != 0) {
             player.getInventory().setSelectedSlot(0);
@@ -151,7 +151,7 @@ public final class YoneSkills {
             CombatEngine.deal(player, target, total, CombatEngine.DamageKind.PHYSICAL,
                     CombatEngine.KnockbackPolicy.VANILLA);
             markSpiritDamage(player, target, total);
-            playBladeSwing(player, InteractionHand.OFF_HAND);
+            playBladeSwing(player, InteractionHand.MAIN_HAND);
             steelBasicAttackVfx(player.level(), player, target, critical);
             player.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG,
                     SoundSource.PLAYERS, 0.68f, 1.15f);
@@ -164,7 +164,7 @@ public final class YoneSkills {
         CombatEngine.deal(player, target, total * 0.5f, CombatEngine.DamageKind.MAGIC,
                 CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
         markSpiritDamage(player, target, total);
-        playBladeSwing(player, InteractionHand.MAIN_HAND);
+        playBladeSwing(player, InteractionHand.OFF_HAND);
         azakanaBasicAttackVfx(player.level(), player, target, critical);
         player.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG,
                 SoundSource.PLAYERS, 0.7f, 1.45f);
@@ -185,20 +185,20 @@ public final class YoneSkills {
         boolean tornado = state != null && state.expiresAt > now && state.stacks >= 2;
         LegendaryItemEffects.onSkillInput(player);
         cast[1] = now;
-        player.startUsingItem(InteractionHand.OFF_HAND);
+        player.startUsingItem(InteractionHand.MAIN_HAND);
         Q_POSE_UNTIL.put(player.getUUID(), now + 140);
         drawQTelegraph(player.level(), player.position(), forward, tornado);
         player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP,
                 SoundSource.PLAYERS, 0.55f, tornado ? 0.75f : 1.45f);
         // Q damage, dash and crowd control resolve on the input tick. The short
-        // off-hand use state only preserves the steel-sword spear pose visually.
+        // main-hand use state only preserves the steel-sword spear pose visually.
         executeQ(new PendingCast(player, Skill.Q, forward, now, tornado));
     }
 
     private static void executeQ(PendingCast cast) {
         ServerPlayer player = cast.player;
         ServerLevel level = player.level();
-        playBladeSwing(player, InteractionHand.OFF_HAND);
+        playBladeSwing(player, InteractionHand.MAIN_HAND);
         int rank = rank(player, 1, 5);
         float damage = (float) (qBase(rank) + player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.05);
         double reach = cast.empowered ? 10.5 : 4.5;
@@ -249,7 +249,7 @@ public final class YoneSkills {
     private static void executeW(PendingCast cast) {
         ServerPlayer player = cast.player;
         ServerLevel level = player.level();
-        player.swing(InteractionHand.MAIN_HAND, true);
+        player.swing(InteractionHand.OFF_HAND, true);
         int rank = rank(player, 2, 5);
         List<LivingEntity> targets = coneTargets(player, cast.forward, 5.5, 0.0);
         int hits = 0;
@@ -372,7 +372,7 @@ public final class YoneSkills {
             if (entry.getValue() > now) return false;
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             if (player != null && player.isUsingItem()
-                    && player.getUsedItemHand() == InteractionHand.OFF_HAND
+                    && player.getUsedItemHand() == InteractionHand.MAIN_HAND
                     && player.getUseItem().is(DariusSkills.YONE_STEEL_SWORD))
                 player.stopUsingItem();
             return true;
@@ -674,8 +674,8 @@ public final class YoneSkills {
         body.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.CHAINMAIL_CHESTPLATE));
         body.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.CHAINMAIL_LEGGINGS));
         body.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.CHAINMAIL_BOOTS));
-        body.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(DariusSkills.YONE_AZAKANA_SWORD));
-        body.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(DariusSkills.YONE_STEEL_SWORD));
+        body.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(DariusSkills.YONE_STEEL_SWORD));
+        body.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(DariusSkills.YONE_AZAKANA_SWORD));
         level.addFreshEntity(body);
         return body;
     }
