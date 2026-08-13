@@ -3,6 +3,7 @@ package kr.darius.skills.shop;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.List;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
@@ -24,6 +25,9 @@ public final class LegendaryItemEffects {
     private static final Map<UUID, Long> SPELLBLADE_COOLDOWN = new HashMap<>();
     private static final Map<UUID, RuinedKingState> RUINED_KING = new HashMap<>();
     private static final Map<UUID, CleaverState> CLEAVER = new HashMap<>();
+    private static final Map<UUID, Integer> KRAKEN_HITS = new HashMap<>();
+    private static final Map<UUID, Integer> STATIKK_CHARGE = new HashMap<>();
+    private static final Map<UUID, Long> HEARTSTEEL_TARGET_COOLDOWN = new HashMap<>();
 
     private LegendaryItemEffects() {}
 
@@ -66,6 +70,53 @@ public final class LegendaryItemEffects {
             applyCleaver(player, target, now);
             player.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, 0, false, false));
         }
+        if (PlayerEconomy.owns(player, LolShopItem.INFINITY_EDGE) && player.getRandom().nextFloat() < 0.25f) {
+            extraPhysical(player, target, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.75f);
+            player.level().sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1, target.getZ(), 16, 0.35, 0.55, 0.35, 0.05);
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.THE_COLLECTOR)
+                && target.getHealth() <= target.getMaxHealth() * 0.05f) {
+            extraPhysical(player, target, target.getHealth() + 1.0f);
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.KRAKEN_SLAYER)) {
+            int hits = KRAKEN_HITS.merge(player.getUUID(), 1, Integer::sum);
+            if (hits >= 3) {
+                KRAKEN_HITS.put(player.getUUID(), 0);
+                extraPhysical(player, target, 3.0f + (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.45f);
+                player.level().sendParticles(ParticleTypes.BUBBLE_POP, target.getX(), target.getY() + 1, target.getZ(), 20, 0.4, 0.6, 0.4, 0.08);
+            }
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.BLOODTHIRSTER)) {
+            player.heal(Math.max(0.2f, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.12f));
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.STATIKK_SHIV)) {
+            int charge = STATIKK_CHARGE.merge(player.getUUID(), 1, Integer::sum);
+            if (charge >= 6) {
+                STATIKK_CHARGE.put(player.getUUID(), 0);
+                List<LivingEntity> chained = player.level().getEntitiesOfClass(LivingEntity.class,
+                        target.getBoundingBox().inflate(5.0), entity -> entity != player && entity != target && entity.isAlive());
+                extraMagic(player, target, 4.0f);
+                for (int i = 0; i < Math.min(4, chained.size()); i++) extraMagic(player, chained.get(i), 3.0f);
+                player.level().playSound(null, target.blockPosition(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.45f, 1.7f);
+            }
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.HEARTSTEEL)) {
+            long readyAt = HEARTSTEEL_TARGET_COOLDOWN.getOrDefault(target.getUUID(), 0L);
+            if (readyAt <= now) {
+                float damage = Math.max(1.0f, player.getMaxHealth() * 0.06f);
+                extraPhysical(player, target, damage);
+                var maxHealth = player.getAttribute(Attributes.MAX_HEALTH);
+                if (maxHealth != null) {
+                    Identifier id = Identifier.fromNamespaceAndPath("darius_skills", "heartsteel_" + player.getUUID().toString().replace("-", ""));
+                    AttributeModifier current = maxHealth.getModifier(id);
+                    double amount = (current == null ? 0.0 : current.amount()) + 0.10;
+                    maxHealth.removeModifier(id);
+                    maxHealth.addPermanentModifier(new AttributeModifier(id, amount, AttributeModifier.Operation.ADD_VALUE));
+                }
+                HEARTSTEEL_TARGET_COOLDOWN.put(target.getUUID(), now + 30_000);
+                player.level().playSound(null, target.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.55f, 1.35f);
+            }
+        }
     }
 
     private static void applyCleaver(ServerPlayer player, LivingEntity target, long now) {
@@ -88,6 +139,13 @@ public final class LegendaryItemEffects {
         target.setDeltaMovement(movement);
     }
 
+    private static void extraMagic(ServerPlayer player, LivingEntity target, float damage) {
+        Vec3 movement = target.getDeltaMovement();
+        target.invulnerableTime = 0;
+        target.hurtServer(player.level(), player.damageSources().magic(), damage);
+        target.setDeltaMovement(movement);
+    }
+
     public static void tick(MinecraftServer server) {
         long now = System.currentTimeMillis();
         SPELLBLADE_ARMED.entrySet().removeIf(entry -> entry.getValue() <= now);
@@ -100,6 +158,7 @@ public final class LegendaryItemEffects {
             if (armor != null) armor.removeModifier(CLEAVER_ARMOR_ID);
             return true;
         });
+        HEARTSTEEL_TARGET_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
     }
 
     private record RuinedKingState(UUID attacker, int hits, long expiresAt) {}

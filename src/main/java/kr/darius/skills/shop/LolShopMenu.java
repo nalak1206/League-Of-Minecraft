@@ -1,6 +1,7 @@
 package kr.darius.skills.shop;
 
 import java.util.List;
+import java.util.Arrays;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -34,9 +35,10 @@ public final class LolShopMenu extends ChestMenu {
 
     private void refresh() {
         for (int slot = 0; slot < shop.getContainerSize(); slot++) shop.setItem(slot, named(Items.GLASS, " "));
-        List<LolShopItem> items = List.of(LolShopItem.values());
+        LolShopItem.Category category = LolShopItem.Category.values()[page];
+        List<LolShopItem> items = Arrays.stream(LolShopItem.values()).filter(item -> item.category() == category).toList();
         for (int index = 0; index < PAGE_SIZE; index++) {
-            int itemIndex = page * PAGE_SIZE + index;
+            int itemIndex = index;
             if (itemIndex >= items.size()) break;
             LolShopItem item = items.get(itemIndex);
             boolean owned = PlayerEconomy.account(customer).owns(item);
@@ -45,18 +47,20 @@ public final class LolShopMenu extends ChestMenu {
             shop.setItem(ITEM_SLOTS[index], icon);
         }
         shop.setItem(45, named(Items.ARROW, "§e이전 페이지"));
+        shop.setItem(4, named(Items.BOOK, "§6§l" + category.displayName()));
         shop.setItem(49, named(Items.GOLD_INGOT, "§6보유 골드: " + PlayerEconomy.account(customer).gold() + "G"));
         shop.setItem(53, named(Items.ARROW, "§e다음 페이지"));
     }
 
     @Override public void clicked(int slotIndex, int buttonNum, ContainerInput input, Player player) {
         if (slotIndex == 45) { page = Math.max(0, page - 1); refresh(); return; }
-        if (slotIndex == 53) { page = Math.min((LolShopItem.values().length - 1) / PAGE_SIZE, page + 1); refresh(); return; }
+        if (slotIndex == 53) { page = Math.min(LolShopItem.Category.values().length - 1, page + 1); refresh(); return; }
         for (int index = 0; index < ITEM_SLOTS.length; index++) {
             if (slotIndex != ITEM_SLOTS[index]) continue;
-            int itemIndex = page * PAGE_SIZE + index;
-            if (itemIndex >= LolShopItem.values().length) return;
-            LolShopItem item = LolShopItem.values()[itemIndex];
+            List<LolShopItem> items = Arrays.stream(LolShopItem.values())
+                    .filter(item -> item.category() == LolShopItem.Category.values()[page]).toList();
+            if (index >= items.size()) return;
+            LolShopItem item = items.get(index);
             PlayerEconomy.PurchaseResult result = PlayerEconomy.purchase(customer, item);
             customer.connection.send(new ClientboundSetActionBarTextPacket(Component.literal(message(result))));
             refresh();

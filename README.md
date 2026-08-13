@@ -6,7 +6,7 @@ Minecraft 26.2 Fabric에서 리그 오브 레전드식 챔피언 전투, 아이�
 
 ## 현재 버전
 
-`0.7.3`
+`0.8.0`
 
 완료된 주요 기능:
 
@@ -15,10 +15,10 @@ Minecraft 26.2 Fabric에서 리그 오브 레전드식 챔피언 전투, 아이�
 - 공통 챔피언 선택, 레벨 1~18, 스킬 랭크와 CC 기반
 - 월드별 플레이어 진행도·골드·아이템 저장
 - 상자 GUI 상점, 시작 아이템, 장화
-- 전사 전설 아이템 3종 1차 구현
+- 역할군별 대표 전설 아이템 6종, 총 36종 카탈로그
 - 야생용 `ADVENTURE`, 롤 맵용 `MATCH` 모드 기반
 
-자세한 현황은 [현재 작업 인수인계](docs/HANDOFF.md), 빌드 방법은 [개발 가이드](docs/DEVELOPMENT.md), 변경 이력은 [CHANGELOG](CHANGELOG.md)를 확인하세요.
+자세한 현황은 [현재 작업 인수인계](docs/HANDOFF.md), [전설 아이템 명세](docs/ITEMS.md), 빌드 방법은 [개발 가이드](docs/DEVELOPMENT.md), 변경 이력은 [CHANGELOG](CHANGELOG.md)를 확인하세요.
 
 ## 빠른 실행
 
