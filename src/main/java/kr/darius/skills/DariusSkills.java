@@ -63,7 +63,7 @@ public final class DariusSkills implements ModInitializer {
             new Item.Properties().axe(ToolMaterial.NETHERITE, -2.0f, -3.2f).rarity(Rarity.EPIC).fireResistant());
     public static final Item YONE_STEEL_SWORD = registerSteelSword();
     public static final Item YONE_AZAKANA_SWORD = registerWeapon("yone_azakana_sword",
-            new Item.Properties().sword(ToolMaterial.NETHERITE, 3.0f, -2.4f).rarity(Rarity.EPIC).fireResistant());
+            new Item.Properties().sword(ToolMaterial.NETHERITE, -2.0f, -2.4f).rarity(Rarity.EPIC).fireResistant());
     private static final ResourceKey<DamageType> NOXIAN_GUILLOTINE_DAMAGE = ResourceKey.create(
             Registries.DAMAGE_TYPE, Identifier.fromNamespaceAndPath("darius_skills", "noxian_guillotine"));
     private static final Identifier APPREHEND_ARMOR_SHRED =
@@ -78,7 +78,7 @@ public final class DariusSkills implements ModInitializer {
     private static Item registerSteelSword() {
         ResourceKey<Item> key = ResourceKey.create(Registries.ITEM,
                 Identifier.fromNamespaceAndPath("darius_skills", "steel_sword"));
-        Item.Properties properties = new Item.Properties().sword(ToolMaterial.NETHERITE, 3.0f, -2.4f)
+        Item.Properties properties = new Item.Properties().sword(ToolMaterial.NETHERITE, -2.0f, -2.4f)
                 .rarity(Rarity.RARE).fireResistant().setId(key);
         return Registry.register(BuiltInRegistries.ITEM, key, new SteelSwordItem(properties));
     }
@@ -423,6 +423,7 @@ public final class DariusSkills implements ModInitializer {
             times[3] = 0;
             return;
         }
+        UltimateVoiceLines.shout(player, ChampionManager.Champion.DARIUS);
         /* Target was validated before the leap, so a failed cast never launches the player. */
         player.teleportTo(best.getX(), best.getY() + 4.5, best.getZ());
         player.setNoGravity(true);

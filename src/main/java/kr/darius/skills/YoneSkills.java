@@ -356,6 +356,7 @@ public final class YoneSkills {
     private static void executeR(PendingCast cast) {
         ServerPlayer player = cast.player;
         ServerLevel level = player.level();
+        UltimateVoiceLines.shout(player, ChampionManager.Champion.YONE);
         player.swing(InteractionHand.MAIN_HAND, true);
         player.swing(InteractionHand.OFF_HAND, true);
         Vec3 origin = player.position();
