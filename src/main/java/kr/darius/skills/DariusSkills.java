@@ -125,10 +125,12 @@ public final class DariusSkills implements ModInitializer {
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
                     && CrowdControl.blocksBasicAttack(serverPlayer)) return InteractionResult.FAIL;
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
+                    && YoneSkills.blocksBasicAttack(serverPlayer)) return InteractionResult.FAIL;
+            if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
                     && entity instanceof LivingEntity living) LegendaryItemEffects.onBasicAttack(serverPlayer, living);
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
                     && ChampionManager.isYone(serverPlayer) && entity instanceof LivingEntity living) {
-                YoneSkills.basicAttack(serverPlayer, living);
+                if (YoneSkills.basicAttack(serverPlayer, living)) return InteractionResult.SUCCESS;
             }
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
                     && ChampionManager.isDarius(serverPlayer)

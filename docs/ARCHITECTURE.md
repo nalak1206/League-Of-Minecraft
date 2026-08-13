@@ -12,7 +12,7 @@
 ## 챔피언
 
 - `DariusSkills.java`: 다리우스 P/Q/W/E/R, 전용 무기와 VFX
-- `YoneSkills.java`: 요네 P/Q/W/E/R Fabric 이식본
+- `YoneSkills.java`: 요네 P/Q/W/E/R, 시전 잠금, Q 폭풍 중첩, E 영체 피해 기록과 R 집결
 - `ChampionProgression.java`: 레벨, XP, 스킬 포인트와 Q/W/E/R 랭크
 
 ## 전투 공통
