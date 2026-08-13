@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.UUID;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
+import kr.darius.skills.shop.PlayerEconomy;
 
 /** Shared CC state used by every champion instead of potion-effect stand-ins. */
 public final class CrowdControl {
@@ -15,6 +16,9 @@ public final class CrowdControl {
     private CrowdControl() {}
 
     public static void apply(LivingEntity target, Type type, long durationMs) {
+        if (target instanceof ServerPlayer player && type != Type.AIRBORNE && type != Type.SUPPRESSION) {
+            durationMs = Math.max(1L, Math.round(durationMs * (1.0 - PlayerEconomy.tenacity(player))));
+        }
         ACTIVE.computeIfAbsent(target.getUUID(), id -> new EnumMap<>(Type.class))
                 .merge(type, System.currentTimeMillis() + durationMs, Math::max);
     }

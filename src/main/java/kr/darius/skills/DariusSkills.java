@@ -51,6 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import kr.darius.skills.shop.LegendaryItemEffects;
+import kr.darius.skills.shop.PlayerEconomy;
+import kr.darius.skills.combat.CombatEngine;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -166,7 +168,8 @@ public final class DariusSkills implements ModInitializer {
                     times[4] = hitAt;
                     float attack = (float) serverPlayer.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
                     boolean alive = living.isAlive();
-                    living.hurtServer(serverPlayer.level(), serverPlayer.damageSources().playerAttack(serverPlayer), attack);
+                    CombatEngine.deal(serverPlayer, living, attack, CombatEngine.DamageKind.PHYSICAL,
+                            CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
                     living.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 20, 5));
                     serverPlayer.level().sendParticles(ParticleTypes.DAMAGE_INDICATOR, living.getX(), living.getY() + 0.35,
                             living.getZ(), 10, 0.45, 0.10, 0.45, 0.14);
@@ -185,6 +188,16 @@ public final class DariusSkills implements ModInitializer {
                     selectOrCreateWeapon(serverPlayer, NOXIAN_POWER);
                     REVERT_TO_DIAMOND.remove(serverPlayer.getUUID());
                 }
+            }
+            if (!level.isClientSide() && !replacesVanillaAttack && player instanceof ServerPlayer serverPlayer
+                    && entity instanceof LivingEntity living && !ChampionManager.isYone(serverPlayer)) {
+                float strength = serverPlayer.getAttackStrengthScale(0.5f);
+                float scale = 0.2f + strength * strength * 0.8f;
+                float damage = (float) serverPlayer.getAttributeValue(Attributes.ATTACK_DAMAGE) * scale;
+                CombatEngine.deal(serverPlayer, living, damage, CombatEngine.DamageKind.PHYSICAL,
+                        CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
+                serverPlayer.resetAttackStrengthTicker();
+                return InteractionResult.SUCCESS;
             }
             return replacesVanillaAttack ? InteractionResult.SUCCESS : InteractionResult.PASS;
         });
@@ -216,7 +229,7 @@ public final class DariusSkills implements ModInitializer {
             CRIPPLING_STRIKE.remove(player.getUUID());
             times[4] = now;
         }
-        long remaining = COOLDOWNS_MS[skill] - (now - times[skill]);
+        long remaining = PlayerEconomy.cooldownMillis(player, COOLDOWNS_MS[skill]) - (now - times[skill]);
         boolean rRecast = skill == 3 && R_RECAST_UNTIL.getOrDefault(player.getUUID(), 0L) > now;
         if (remaining > 0 && !rRecast) return;
         LegendaryItemEffects.onSkillInput(player);
@@ -257,7 +270,7 @@ public final class DariusSkills implements ModInitializer {
         long now = System.currentTimeMillis();
         long[] times = LAST_CAST.computeIfAbsent(player.getUUID(), id -> new long[5]);
         boolean rRecast = R_RECAST_UNTIL.getOrDefault(player.getUUID(), 0L) > now;
-        if (COOLDOWNS_MS[3] - (now - times[3]) > 0 && !rRecast) return;
+        if (PlayerEconomy.cooldownMillis(player, COOLDOWNS_MS[3]) - (now - times[3]) > 0 && !rRecast) return;
         GUILLOTINE_ARMED.remove(player.getUUID());
         if (rRecast) R_RECAST_UNTIL.remove(player.getUUID());
         times[3] = now;
@@ -850,22 +863,22 @@ public final class DariusSkills implements ModInitializer {
 
     private static void showCooldownActionBar(ServerPlayer player, long now) {
         long[] times = LAST_CAST.get(player.getUUID());
-        String q = cooldownText(times, 1, now);
+        String q = cooldownText(player, times, 1, now);
         String w = CRIPPLING_STRIKE.getOrDefault(player.getUUID(), 0L) > now
                 ? "§dACTIVE"
-                : cooldownText(times, 4, now);
-        String e = cooldownText(times, 2, now);
+                : cooldownText(player, times, 4, now);
+        String e = cooldownText(player, times, 2, now);
         long recastRemaining = R_RECAST_UNTIL.getOrDefault(player.getUUID(), 0L) - now;
         String r = recastRemaining > 0
                 ? "§d재시전 " + String.format(java.util.Locale.ROOT, "%.1fs", recastRemaining / 1000.0)
-                : cooldownText(times, 3, now);
+                : cooldownText(player, times, 3, now);
         player.connection.send(new ClientboundSetActionBarTextPacket(Component.literal(
                 "§cZ§f " + q + "  §8|  §cX§f " + w + "  §8|  §cC§f " + e + "  §8|  §4§lV§r§f " + r)));
     }
 
-    private static String cooldownText(long[] times, int skill, long now) {
+    private static String cooldownText(ServerPlayer player, long[] times, int skill, long now) {
         if (times == null || times[skill] == 0) return "§aREADY";
-        long remaining = COOLDOWNS_MS[skill] - (now - times[skill]);
+        long remaining = PlayerEconomy.cooldownMillis(player, COOLDOWNS_MS[skill]) - (now - times[skill]);
         if (remaining <= 0) return "§aREADY";
         return "§e" + String.format(java.util.Locale.ROOT, "%.1fs", remaining / 1000.0);
     }

@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import kr.darius.skills.ChampionManager;
+import kr.darius.skills.ChampionProgression;
 import kr.darius.skills.LolPlayerDataStore;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
@@ -35,6 +36,8 @@ public final class PlayerEconomy {
         if (item.isFinishedBoots() && account.items.contains(LolShopItem.BOOTS)) price -= LolShopItem.BOOTS.price();
         if (item.category() == LolShopItem.Category.BOOTS && account.items.stream().anyMatch(LolShopItem::isFinishedBoots))
             return PurchaseResult.BOOTS_LOCKED;
+        boolean upgradesBoots = item.isFinishedBoots() && account.items.contains(LolShopItem.BOOTS);
+        if (!upgradesBoots && account.items.size() >= 6) return PurchaseResult.INVENTORY_FULL;
         if (account.gold < price) return PurchaseResult.NOT_ENOUGH_GOLD;
         account.gold -= price;
         if (item.isFinishedBoots()) account.items.remove(LolShopItem.BOOTS);
@@ -61,7 +64,9 @@ public final class PlayerEconomy {
             damage += item.attackDamage(); health += item.maxHealth(); attackSpeed += item.attackSpeed();
             armor += item.armor(); move += item.movementSpeed();
         }
-        damage += excessCriticalStrikeAttackDamage(player, account);
+        int level = ChampionProgression.get(player).level();
+        damage += excessCriticalStrikeAttackDamage(player, account) + (level - 1) * 0.35;
+        health += (level - 1) * 1.25;
         modifier(player, Attributes.ATTACK_DAMAGE, DAMAGE_ID, damage, AttributeModifier.Operation.ADD_VALUE);
         modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, health, AttributeModifier.Operation.ADD_VALUE);
         modifier(player, Attributes.ATTACK_SPEED, SPEED_ID, attackSpeed, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
@@ -79,13 +84,24 @@ public final class PlayerEconomy {
     }
 
     public static double abilityPower(ServerPlayer player) {
-        return account(player).items.stream().mapToDouble(LolShopItem::abilityPower).sum();
+        double value = account(player).items.stream().mapToDouble(LolShopItem::abilityPower).sum();
+        return owns(player, LolShopItem.RABADONS_DEATHCAP) ? value * 1.30 : value;
     }
 
     public static double attackDamage(ServerPlayer player) {
         Account account = account(player);
         return account.items.stream().mapToDouble(LolShopItem::attackDamage).sum()
                 + excessCriticalStrikeAttackDamage(player, account);
+    }
+
+    public static int sell(ServerPlayer player, LolShopItem item) {
+        Account account = account(player);
+        if (!account.items.remove(item)) return 0;
+        int refund = Math.max(1, (int) Math.floor(item.price() * 0.70));
+        account.gold += refund;
+        applyAttributes(player);
+        LolPlayerDataStore.save(player.level().getServer());
+        return refund;
     }
 
     public static double attackSpeed(ServerPlayer player) {
@@ -98,6 +114,36 @@ public final class PlayerEconomy {
 
     public static double bonusCriticalStrikeDamage(ServerPlayer player) {
         return account(player).items.stream().mapToDouble(LolShopItem::bonusCriticalStrikeDamage).sum();
+    }
+
+    public static double magicResistance(ServerPlayer player) {
+        return 30.0 + sum(player, LolShopItem::magicResistance);
+    }
+    public static double abilityHaste(ServerPlayer player) { return sum(player, LolShopItem::abilityHaste); }
+    public static double armorPenetrationPercent(ServerPlayer player) {
+        return Math.min(1.0, sum(player, LolShopItem::armorPenetrationPercent));
+    }
+    public static double armorPenetrationFlat(ServerPlayer player) { return sum(player, LolShopItem::armorPenetrationFlat); }
+    public static double magicPenetrationPercent(ServerPlayer player) {
+        return Math.min(1.0, sum(player, LolShopItem::magicPenetrationPercent));
+    }
+    public static double magicPenetrationFlat(ServerPlayer player) { return sum(player, LolShopItem::magicPenetrationFlat); }
+    public static double healthRegenPerFive(ServerPlayer player) { return sum(player, LolShopItem::healthRegenPerFive); }
+    public static double lifeSteal(ServerPlayer player) { return Math.min(1.0, sum(player, LolShopItem::lifeSteal)); }
+    public static double tenacity(ServerPlayer player) { return Math.min(0.60, sum(player, LolShopItem::tenacity)); }
+    public static double healAndShieldPower(ServerPlayer player) { return sum(player, LolShopItem::healAndShieldPower); }
+    public static long cooldownMillis(ServerPlayer player, long baseMillis) {
+        return Math.max(1L, Math.round(baseMillis * 100.0 / (100.0 + abilityHaste(player))));
+    }
+
+    public static void tickRegen(ServerPlayer player, long serverTicks) {
+        if (serverTicks % 100 != 0 || !player.isAlive() || player.getHealth() >= player.getMaxHealth()) return;
+        double amount = healthRegenPerFive(player);
+        if (amount > 0) player.heal((float) amount);
+    }
+
+    private static double sum(ServerPlayer player, java.util.function.ToDoubleFunction<LolShopItem> stat) {
+        return account(player).items.stream().mapToDouble(stat).sum();
     }
 
     private static double excessCriticalStrikeAttackDamage(ServerPlayer player, Account account) {
@@ -129,7 +175,7 @@ public final class PlayerEconomy {
 
     private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("darius_skills", path); }
 
-    public enum PurchaseResult { SUCCESS, OWNED, NOT_ENOUGH_GOLD, STARTER_LOCKED, BOOTS_LOCKED }
+    public enum PurchaseResult { SUCCESS, OWNED, NOT_ENOUGH_GOLD, STARTER_LOCKED, BOOTS_LOCKED, INVENTORY_FULL }
     public static final class Account {
         private int gold = 500;
         private final EnumSet<LolShopItem> items = EnumSet.noneOf(LolShopItem.class);

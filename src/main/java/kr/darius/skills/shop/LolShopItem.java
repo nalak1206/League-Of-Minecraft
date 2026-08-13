@@ -127,5 +127,98 @@ public enum LolShopItem {
         };
     }
     public double bonusCriticalStrikeDamage() { return this == INFINITY_EDGE ? 0.30 : 0.0; }
+    /** Values below use League's display scale (for example 18 means 18 lethality). */
+    public double magicResistance() {
+        return switch (this) {
+            case MERCURYS, LOCKET_OF_THE_IRON_SOLARI -> 25;
+            case KAENIC_ROOKERN -> 80;
+            case JAKSHO -> 50;
+            default -> 0;
+        };
+    }
+    public double abilityHaste() {
+        return switch (this) {
+            case IONIAN -> 15;
+            case BLACK_CLEAVER, AXIOM_ARC, LIANDRYS_TORMENT, REDEMPTION, SHURELYAS_BATTLESONG -> 20;
+            case SUNDERED_SKY, DEATHS_DANCE, SERYLDAS_GRUDGE, PROFANE_HYDRA,
+                    ZHONYAS_HOURGLASS, RYLAIS_CRYSTAL_SCEPTER, SUNFIRE_AEGIS,
+                    WARMOGS_ARMOR, KAENIC_ROOKERN, JAKSHO, LOCKET_OF_THE_IRON_SOLARI,
+                    KNIGHTS_VOW, ARDENT_CENSER, IMPERIAL_MANDATE -> 15;
+            case TRINITY_FORCE, STERAKS_GAGE, EDGE_OF_NIGHT -> 10;
+            default -> 0;
+        };
+    }
+    public double armorPenetrationPercent() {
+        return switch (this) {
+            case LORD_DOMINIKS_REGARDS -> 0.35;
+            case SERYLDAS_GRUDGE -> 0.30;
+            default -> 0;
+        };
+    }
+    public double armorPenetrationFlat() {
+        return switch (this) {
+            case THE_COLLECTOR -> 10;
+            case EDGE_OF_NIGHT -> 15;
+            case YOUMUUS_GHOSTBLADE, OPPORTUNITY, AXIOM_ARC, PROFANE_HYDRA -> 18;
+            default -> 0;
+        };
+    }
+    public double magicPenetrationPercent() { return this == VOID_STAFF ? 0.40 : 0; }
+    public double magicPenetrationFlat() {
+        return switch (this) {
+            case SORCERERS -> 12;
+            case SHADOWFLAME -> 15;
+            default -> 0;
+        };
+    }
+    /** Minecraft health points restored per five seconds. */
+    public double healthRegenPerFive() {
+        return switch (this) {
+            case DORANS_SHIELD -> 1.2;
+            case DORANS_HELM -> 0.8;
+            case WARMOGS_ARMOR -> 5.0;
+            case WORLD_ATLAS, HEARTSTEEL -> 0.5;
+            default -> 0;
+        };
+    }
+    public double lifeSteal() {
+        return switch (this) {
+            case DORANS_BLADE -> 0.025;
+            case BLADE_OF_THE_RUINED_KING -> 0.10;
+            case BLOODTHIRSTER -> 0.15;
+            default -> 0;
+        };
+    }
+    public double tenacity() {
+        return switch (this) {
+            case MERCURYS -> 0.30;
+            case STERAKS_GAGE -> 0.20;
+            default -> 0;
+        };
+    }
+    public double healAndShieldPower() {
+        return switch (this) {
+            case REDEMPTION -> 0.15;
+            case ARDENT_CENSER -> 0.10;
+            default -> 0;
+        };
+    }
+    public String statSummary() {
+        StringBuilder text = new StringBuilder();
+        add(text, attackDamage, "AD"); add(text, abilityPower, "AP"); add(text, maxHealth, "HP");
+        add(text, armor * 10, "방어"); add(text, magicResistance(), "마저");
+        add(text, abilityHaste(), "가속"); add(text, armorPenetrationFlat(), "물관");
+        add(text, armorPenetrationPercent() * 100, "%물관"); add(text, magicPenetrationFlat(), "마관");
+        add(text, magicPenetrationPercent() * 100, "%마관"); add(text, attackSpeed * 100, "%공속");
+        add(text, criticalStrikeChance() * 100, "%치명타"); add(text, lifeSteal() * 100, "%흡혈");
+        add(text, tenacity() * 100, "%강인함"); add(text, healthRegenPerFive(), "5초재생");
+        return text.toString();
+    }
+    private static void add(StringBuilder text, double value, String label) {
+        if (value == 0) return;
+        if (!text.isEmpty()) text.append(" ");
+        text.append(value == Math.rint(value) ? Integer.toString((int) value) : String.format(java.util.Locale.ROOT, "%.1f", value))
+                .append(label);
+    }
     public boolean isFinishedBoots() { return category == Category.BOOTS && this != BOOTS; }
 }

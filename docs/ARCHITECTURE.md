@@ -18,17 +18,18 @@
 ## 전투 공통
 
 - `CrowdControl.java`: 둔화, 속박, 기절, 에어본, 침묵, 무장해제, 시야 차단, 이동기 차단, 제압 상태
-- `combat/CombatEngine.java`: 서버 피해 소스, 물리·마법 분류, 무적 프레임과 넉백 정책을 한 경로로 처리
+- `combat/CombatEngine.java`: LoL 물리·마법 피해, 방어력·마저, 비율 관통→고정 관통, 음수 저항 공식과 넉백 정책 처리
 - `combat/CriticalStrikeEngine.java`: 아이템 치명타 확률·피해, 요네 확률 증폭·피해 계수의 공통 판정
-- 아직 부족한 핵심: 챔피언 스킬 연결, 고정 피해, 방어력·마법 저항력과 관통력 계산
+- 다리우스·요네 기본 공격과 요네 스킬, 아이템 추가 피해가 공통 계산기를 사용합니다. 다리우스 개별 스킬의 나머지 직접 피해 경로는 순차 이관 대상입니다.
 
 ## 상점과 아이템
 
 - `shop/LolShop.java`: 상점 열기
-- `shop/LolShopMenu.java`: 6줄 상자 GUI, 페이지와 구매 클릭 처리
+- `shop/LolShopMenu.java`: 6줄 상자 GUI, 8개 탭, 구매·판매, 6칸 장비와 스킬 포인트 투자
 - `shop/LolShopItem.java`: 상품 이름, 가격, 분류, 아이콘과 기본 능력치
 - `shop/PlayerEconomy.java`: 골드, 소유 아이템, 플레이어 능력치 반영
 - `shop/LegendaryItemEffects.java`: 구현된 전설 아이템 런타임 효과
+- `LolMatchSystem.java`: 처치 골드/XP, MATCH 자연 골드, 장비 재생과 피해 이벤트
 
 구매 아이템은 실제 인벤토리를 차지하지 않는 가상 장비입니다. 챔피언 스킬 무기가 1번 슬롯에서 바뀌는 구조와 충돌하지 않기 위한 결정입니다.
 

@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.server.level.ServerPlayer;
+import kr.darius.skills.shop.PlayerEconomy;
 
 /** League-style champion level and Q/W/E/R rank state. */
 public final class ChampionProgression {
@@ -27,6 +28,10 @@ public final class ChampionProgression {
             progress.xp -= XP_TO_NEXT[progress.level];
             progress.level++;
             progress.skillPoints++;
+            PlayerEconomy.applyAttributes(player);
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket(
+                    net.minecraft.network.chat.Component.literal("§6LEVEL UP! §f" + progress.level
+                            + " §d스킬 포인트 +1")));
         }
         LolPlayerDataStore.save(player.level().getServer());
     }
@@ -38,6 +43,7 @@ public final class ChampionProgression {
         progress.level = target;
         progress.xp = 0;
         progress.skillPoints += gained;
+        PlayerEconomy.applyAttributes(player);
         LolPlayerDataStore.save(player.level().getServer());
     }
 

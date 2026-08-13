@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import kr.darius.skills.ChampionManager;
 import kr.darius.skills.combat.CombatEngine;
 import kr.darius.skills.combat.CriticalStrikeEngine;
@@ -33,8 +35,91 @@ public final class LegendaryItemEffects {
     private static final Map<UUID, Integer> KRAKEN_HITS = new HashMap<>();
     private static final Map<UUID, Integer> STATIKK_CHARGE = new HashMap<>();
     private static final Map<UUID, Long> HEARTSTEEL_TARGET_COOLDOWN = new HashMap<>();
+    private static final Map<UUID, Long> ACTIVE_COOLDOWN = new HashMap<>();
+    private static final Map<UUID, Long> ZHONYA_UNTIL = new HashMap<>();
+    private static final Map<UUID, Long> LAST_COMBAT = new HashMap<>();
+    private static final Map<UUID, Long> STERAK_COOLDOWN = new HashMap<>();
+    private static final Set<UUID> REFLECTING = new HashSet<>();
 
     private LegendaryItemEffects() {}
+
+    public static String useActive(ServerPlayer player) {
+        long now = System.currentTimeMillis();
+        long readyAt = ACTIVE_COOLDOWN.getOrDefault(player.getUUID(), 0L);
+        if (readyAt > now) return String.format(java.util.Locale.ROOT, "재사용 %.1f초", (readyAt - now) / 1000.0);
+        if (PlayerEconomy.owns(player, LolShopItem.ZHONYAS_HOURGLASS)) {
+            ZHONYA_UNTIL.put(player.getUUID(), now + 2_500);
+            player.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 50, 255, false, false));
+            player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 50, 255, false, false));
+            ACTIVE_COOLDOWN.put(player.getUUID(), now + 120_000);
+            player.level().playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8f, 0.7f);
+            return "존야의 모래시계: 경직 2.5초";
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.YOUMUUS_GHOSTBLADE)) {
+            player.addEffect(new MobEffectInstance(MobEffects.SPEED, 120, 2, false, false));
+            ACTIVE_COOLDOWN.put(player.getUUID(), now + 45_000);
+            return "요우무의 유령검: 이동 속도 증가";
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.PROFANE_HYDRA)) {
+            List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class,
+                    player.getBoundingBox().inflate(4.0), target -> target != player && target.isAlive());
+            for (LivingEntity target : targets) {
+                float missing = 1.0f - target.getHealth() / target.getMaxHealth();
+                extraPhysical(player, target, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.8f + missing * 0.8f));
+            }
+            ACTIVE_COOLDOWN.put(player.getUUID(), now + 10_000);
+            return "불경한 히드라: 광역 참격";
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.LOCKET_OF_THE_IRON_SOLARI)) {
+            for (ServerPlayer ally : player.level().getEntitiesOfClass(ServerPlayer.class,
+                    player.getBoundingBox().inflate(8.0), LivingEntity::isAlive))
+                ally.setAbsorptionAmount(Math.max(ally.getAbsorptionAmount(), 5.0f));
+            ACTIVE_COOLDOWN.put(player.getUUID(), now + 90_000);
+            return "강철의 솔라리 펜던트: 광역 보호막";
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.SHURELYAS_BATTLESONG)) {
+            for (ServerPlayer ally : player.level().getEntitiesOfClass(ServerPlayer.class,
+                    player.getBoundingBox().inflate(8.0), LivingEntity::isAlive))
+                ally.addEffect(new MobEffectInstance(MobEffects.SPEED, 80, 2, false, false));
+            ACTIVE_COOLDOWN.put(player.getUUID(), now + 75_000);
+            return "슈렐리아의 군가: 광역 이동 속도 증가";
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.REDEMPTION)) {
+            player.heal((float) (6.0 * (1.0 + PlayerEconomy.healAndShieldPower(player))));
+            for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class,
+                    player.getBoundingBox().inflate(8.0), target -> target != player && target.isAlive()))
+                extraMagic(player, target, 3.0f);
+            ACTIVE_COOLDOWN.put(player.getUUID(), now + 90_000);
+            return "구원: 주변 회복 및 피해";
+        }
+        return "사용할 수 있는 액티브 아이템이 없습니다";
+    }
+
+    public static boolean allowDamage(LivingEntity target) {
+        return ZHONYA_UNTIL.getOrDefault(target.getUUID(), 0L) <= System.currentTimeMillis();
+    }
+
+    public static void afterDamage(LivingEntity target, net.minecraft.world.damagesource.DamageSource source, float amount) {
+        long now = System.currentTimeMillis();
+        LAST_COMBAT.put(target.getUUID(), now);
+        if (source.getEntity() instanceof LivingEntity attacker) LAST_COMBAT.put(attacker.getUUID(), now);
+        if (!(target instanceof ServerPlayer player)) return;
+        if (PlayerEconomy.owns(player, LolShopItem.THORNMAIL) && source.getEntity() instanceof LivingEntity attacker
+                && attacker != player && REFLECTING.add(player.getUUID())) {
+            try {
+                CombatEngine.deal(player, attacker, 1.0f + (float) player.getAttributeValue(Attributes.ARMOR) * 0.15f,
+                        CombatEngine.DamageKind.MAGIC, CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
+            } finally {
+                REFLECTING.remove(player.getUUID());
+            }
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.STERAKS_GAGE)
+                && player.getHealth() <= player.getMaxHealth() * 0.30f
+                && STERAK_COOLDOWN.getOrDefault(player.getUUID(), 0L) <= now) {
+            player.setAbsorptionAmount(Math.max(player.getAbsorptionAmount(), player.getMaxHealth() * 0.35f));
+            STERAK_COOLDOWN.put(player.getUUID(), now + 90_000);
+        }
+    }
 
     public static void onSkillInput(ServerPlayer player) {
         if (!PlayerEconomy.owns(player, LolShopItem.TRINITY_FORCE)) return;
@@ -77,7 +162,6 @@ public final class LegendaryItemEffects {
         if (PlayerEconomy.owns(player, LolShopItem.BLADE_OF_THE_RUINED_KING)) {
             float damage = Math.max(0.5f, target.getHealth() * 0.09f);
             extraPhysical(player, target, damage);
-            player.heal(Math.max(0.1f, damage * 0.10f));
             RuinedKingState previous = RUINED_KING.get(target.getUUID());
             int hits = previous != null && previous.attacker.equals(player.getUUID()) && previous.expiresAt > now ? previous.hits + 1 : 1;
             if (hits >= 3) {
@@ -106,7 +190,7 @@ public final class LegendaryItemEffects {
             }
         }
         if (PlayerEconomy.owns(player, LolShopItem.BLOODTHIRSTER)) {
-            player.heal(Math.max(0.2f, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.12f));
+            // Lifesteal is applied once below for every charged basic attack.
         }
         if (PlayerEconomy.owns(player, LolShopItem.STATIKK_SHIV)) {
             int charge = STATIKK_CHARGE.merge(player.getUUID(), 1, Integer::sum);
@@ -135,6 +219,13 @@ public final class LegendaryItemEffects {
                 HEARTSTEEL_TARGET_COOLDOWN.put(target.getUUID(), now + 30_000);
                 player.level().playSound(null, target.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.55f, 1.35f);
             }
+        }
+        double lifeSteal = PlayerEconomy.lifeSteal(player);
+        if (lifeSteal > 0) {
+            double rawAttack = player.getAttributeValue(Attributes.ATTACK_DAMAGE);
+            double dealtEstimate = rawAttack * CombatEngine.resistanceMultiplier(
+                    CombatEngine.resistanceAfterPenetration(player, target, CombatEngine.DamageKind.PHYSICAL));
+            player.heal((float) Math.max(0.0, dealtEstimate * lifeSteal));
         }
         if (replacesVanillaAttack) player.resetAttackStrengthTicker();
         return replacesVanillaAttack;
@@ -178,6 +269,20 @@ public final class LegendaryItemEffects {
             return true;
         });
         HEARTSTEEL_TARGET_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
+        ACTIVE_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
+        ZHONYA_UNTIL.entrySet().removeIf(entry -> entry.getValue() <= now);
+        STERAK_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
+        if (server.getTickCount() % 20 == 0) for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (!player.isAlive()) continue;
+            if (PlayerEconomy.owns(player, LolShopItem.WARMOGS_ARMOR)
+                    && now - LAST_COMBAT.getOrDefault(player.getUUID(), 0L) >= 8_000)
+                player.heal(player.getMaxHealth() * 0.03f);
+            if (PlayerEconomy.owns(player, LolShopItem.SUNFIRE_AEGIS)) {
+                for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class,
+                        player.getBoundingBox().inflate(3.0), target -> target != player && target.isAlive()))
+                    extraMagic(player, target, 1.0f + player.getMaxHealth() * 0.01f);
+            }
+        }
     }
 
     private record RuinedKingState(UUID attacker, int hits, long expiresAt) {}

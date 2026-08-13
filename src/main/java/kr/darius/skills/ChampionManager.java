@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import kr.darius.skills.shop.LolShop;
 import kr.darius.skills.shop.PlayerEconomy;
+import kr.darius.skills.shop.LegendaryItemEffects;
 
 public final class ChampionManager {
     public enum Champion { DARIUS, YONE }
@@ -24,6 +25,7 @@ public final class ChampionManager {
 
     public static void initialize() {
         LolPlayerDataStore.initialize();
+        LolMatchSystem.initialize();
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
             dispatcher.register(Commands.literal("lol")
                 .then(Commands.literal("champion")
@@ -80,6 +82,30 @@ public final class ChampionManager {
                 }))
                 .then(Commands.literal("shop").executes(ctx -> {
                     LolShop.open(ctx.getSource().getPlayerOrException());
+                    return 1;
+                }))
+                .then(Commands.literal("inventory").executes(ctx -> {
+                    LolShop.open(ctx.getSource().getPlayerOrException());
+                    return 1;
+                }))
+                .then(Commands.literal("item")
+                    .then(Commands.literal("use").executes(ctx -> {
+                        String result = LegendaryItemEffects.useActive(ctx.getSource().getPlayerOrException());
+                        ctx.getSource().sendSuccess(() -> Component.literal(result), false);
+                        return 1;
+                    })))
+                .then(Commands.literal("stats").executes(ctx -> {
+                    ServerPlayer player = ctx.getSource().getPlayerOrException();
+                    ctx.getSource().sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                            "AD %.1f | AP %.1f | 방어 %.0f | 마저 %.0f | 물관 %.0f+%.0f%% | 마관 %.0f+%.0f%% | 가속 %.0f | 흡혈 %.0f%% | 재생/5초 %.1f | 강인함 %.0f%%",
+                            player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE),
+                            PlayerEconomy.abilityPower(player),
+                            player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR) * 10,
+                            PlayerEconomy.magicResistance(player), PlayerEconomy.armorPenetrationFlat(player),
+                            PlayerEconomy.armorPenetrationPercent(player) * 100,
+                            PlayerEconomy.magicPenetrationFlat(player), PlayerEconomy.magicPenetrationPercent(player) * 100,
+                            PlayerEconomy.abilityHaste(player), PlayerEconomy.lifeSteal(player) * 100,
+                            PlayerEconomy.healthRegenPerFive(player), PlayerEconomy.tenacity(player) * 100)), false);
                     return 1;
                 }))
                 .then(Commands.literal("gold")

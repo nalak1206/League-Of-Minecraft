@@ -647,13 +647,14 @@ public final class YoneSkills {
     }
 
     private static long cooldown(ServerPlayer player, int skill) {
-        return switch (skill) {
+        long base = switch (skill) {
             case 1 -> scaledCooldown(player, 4_000, 1_330);
             case 2 -> new long[]{22_000, 19_000, 16_000, 13_000, 10_000}[rank(player, 3, 5) - 1];
             case 3 -> new long[]{120_000, 100_000, 80_000}[rank(player, 4, 3) - 1];
             case 4 -> scaledCooldown(player, 14_000, 6_000);
             default -> 0;
         };
+        return PlayerEconomy.cooldownMillis(player, base);
     }
 
     private static long scaledCooldown(ServerPlayer player, long base, long minimum) {
