@@ -1,9 +1,9 @@
 {
-  "key.category.darius_skills.skills": "Darius Skills",
-  "key.darius_skills.q_keyboard": "Q - Decimate (Z)",
-  "key.darius_skills.w_keyboard": "W - Crippling Strike (X)",
-  "key.darius_skills.e_keyboard": "E - Apprehend (C)",
-  "key.darius_skills.r_keyboard": "R - Noxian Guillotine (V)"
+  "key.category.darius_skills.skills": "Champion Skills",
+  "key.darius_skills.q_keyboard": "Skill 1",
+  "key.darius_skills.w_keyboard": "Skill 2",
+  "key.darius_skills.e_keyboard": "Skill 3",
+  "key.darius_skills.r_keyboard": "Skill 4"
   ,"item.darius_skills.noxian_power": "Noxian Might"
   ,"item.darius_skills.crippling_strike": "Crippling Strike"
   ,"item.darius_skills.noxian_guillotine": "Noxian Guillotine"

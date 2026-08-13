@@ -1,9 +1,9 @@
 {
-  "key.category.darius_skills.skills": "다리우스 스킬",
-  "key.darius_skills.q_keyboard": "Q - 학살 (Z)",
-  "key.darius_skills.w_keyboard": "W - 마비의 일격 (X)",
-  "key.darius_skills.e_keyboard": "E - 포획 (C)",
-  "key.darius_skills.r_keyboard": "R - 녹서스의 단두대 (V)"
+  "key.category.darius_skills.skills": "챔피언 스킬",
+  "key.darius_skills.q_keyboard": "스킬 1",
+  "key.darius_skills.w_keyboard": "스킬 2",
+  "key.darius_skills.e_keyboard": "스킬 3",
+  "key.darius_skills.r_keyboard": "스킬 4"
   ,"item.darius_skills.noxian_power": "녹서스의 힘"
   ,"item.darius_skills.crippling_strike": "마비의 일격"
   ,"item.darius_skills.noxian_guillotine": "녹서스의 단두대"
