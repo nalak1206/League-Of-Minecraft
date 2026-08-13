@@ -61,7 +61,7 @@ public final class DariusSkills implements ModInitializer {
             new Item.Properties().axe(ToolMaterial.NETHERITE, -2.0f, -3.0f).rarity(Rarity.EPIC).fireResistant());
     public static final Item NOXIAN_GUILLOTINE = registerWeapon("noxian_guillotine",
             new Item.Properties().axe(ToolMaterial.NETHERITE, -2.0f, -3.2f).rarity(Rarity.EPIC).fireResistant());
-    public static final Item YONE_STEEL_SWORD = registerWeapon("yone_steel_sword",
+    public static final Item YONE_STEEL_SWORD = registerWeapon("steel_sword",
             new Item.Properties().sword(ToolMaterial.NETHERITE, 3.0f, -2.4f).rarity(Rarity.RARE).fireResistant());
     public static final Item YONE_AZAKANA_SWORD = registerWeapon("yone_azakana_sword",
             new Item.Properties().sword(ToolMaterial.NETHERITE, 3.0f, -2.4f).rarity(Rarity.EPIC).fireResistant());

@@ -40,6 +40,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
@@ -66,6 +67,7 @@ public final class YoneSkills {
     private static final Map<UUID, QState> Q_STATES = new HashMap<>();
     private static final Map<UUID, EState> E_STATES = new HashMap<>();
     private static final Map<UUID, ShieldVfx> SHIELD_VFX = new HashMap<>();
+    private static final Map<UUID, QThrustVfx> Q_THRUST_VFX = new HashMap<>();
     private static final List<FateTrailVfx> FATE_TRAILS = new ArrayList<>();
     private static final Map<UUID, Long> ACTION_LOCK_UNTIL = new HashMap<>();
     private static final Map<UUID, Boolean> SECOND_BLADE = new HashMap<>();
@@ -90,13 +92,13 @@ public final class YoneSkills {
         if (!displacedOffhand.isEmpty() && !isYoneWeapon(displacedOffhand))
             player.getInventory().add(displacedOffhand.copy());
         removeYoneWeapons(player);
-        player.getInventory().setItem(0, new ItemStack(DariusSkills.YONE_STEEL_SWORD));
-        player.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(DariusSkills.YONE_AZAKANA_SWORD));
+        player.getInventory().setItem(0, new ItemStack(DariusSkills.YONE_AZAKANA_SWORD));
+        player.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(DariusSkills.YONE_STEEL_SWORD));
     }
 
     private static void enforceDualBlades(ServerPlayer player) {
-        boolean correct = player.getInventory().getItem(0).is(DariusSkills.YONE_STEEL_SWORD)
-                && player.getOffhandItem().is(DariusSkills.YONE_AZAKANA_SWORD);
+        boolean correct = player.getInventory().getItem(0).is(DariusSkills.YONE_AZAKANA_SWORD)
+                && player.getOffhandItem().is(DariusSkills.YONE_STEEL_SWORD);
         if (!correct) installDualBlades(player);
         if (player.getInventory().getSelectedSlot() != 0) {
             player.getInventory().setSelectedSlot(0);
@@ -118,6 +120,7 @@ public final class YoneSkills {
         EState spirit = E_STATES.remove(player.getUUID());
         if (spirit != null) returnToBody(player, spirit);
         SHIELD_VFX.remove(player.getUUID());
+        discardQThrust(player.getUUID());
         ACTION_LOCK_UNTIL.remove(player.getUUID());
         PENDING_CASTS.removeIf(cast -> cast.player == player);
         SECOND_BLADE.remove(player.getUUID());
@@ -143,9 +146,15 @@ public final class YoneSkills {
         boolean spiritBlade = SECOND_BLADE.getOrDefault(player.getUUID(), false);
         SECOND_BLADE.put(player.getUUID(), !spiritBlade);
         if (!spiritBlade) {
-            markSpiritDamage(player, target, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE));
+            float total = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE);
+            CombatEngine.deal(player, target, total, CombatEngine.DamageKind.PHYSICAL,
+                    CombatEngine.KnockbackPolicy.VANILLA);
+            markSpiritDamage(player, target, total);
+            player.swing(InteractionHand.OFF_HAND, true);
             steelBasicAttackVfx(player.level(), player, target, critical);
-            return false;
+            player.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG,
+                    SoundSource.PLAYERS, 0.68f, 1.15f);
+            return true;
         }
 
         float total = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE);
@@ -154,7 +163,7 @@ public final class YoneSkills {
         CombatEngine.deal(player, target, total * 0.5f, CombatEngine.DamageKind.MAGIC,
                 CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
         markSpiritDamage(player, target, total);
-        player.swing(InteractionHand.OFF_HAND, true);
+        player.swing(InteractionHand.MAIN_HAND, true);
         azakanaBasicAttackVfx(player.level(), player, target, critical);
         player.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG,
                 SoundSource.PLAYERS, 0.7f, 1.45f);
@@ -178,6 +187,7 @@ public final class YoneSkills {
         cast[1] = now;
         lock(player, castTime);
         PENDING_CASTS.add(new PendingCast(player, Skill.Q, forward, now + castTime, tornado));
+        createQThrust(player, forward, now, now + castTime);
         drawQTelegraph(player.level(), player.position(), forward, tornado);
         player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP,
                 SoundSource.PLAYERS, 0.55f, tornado ? 0.75f : 1.45f);
@@ -186,7 +196,8 @@ public final class YoneSkills {
     private static void executeQ(PendingCast cast) {
         ServerPlayer player = cast.player;
         ServerLevel level = player.level();
-        player.swing(InteractionHand.MAIN_HAND, true);
+        discardQThrust(player.getUUID());
+        player.swing(InteractionHand.OFF_HAND, true);
         int rank = rank(player, 1, 5);
         float damage = (float) (qBase(rank) + player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.05);
         double reach = cast.empowered ? 10.5 : 4.5;
@@ -237,7 +248,7 @@ public final class YoneSkills {
     private static void executeW(PendingCast cast) {
         ServerPlayer player = cast.player;
         ServerLevel level = player.level();
-        player.swing(InteractionHand.OFF_HAND, true);
+        player.swing(InteractionHand.MAIN_HAND, true);
         int rank = rank(player, 2, 5);
         List<LivingEntity> targets = coneTargets(player, cast.forward, 5.5, 0.0);
         int hits = 0;
@@ -366,6 +377,16 @@ public final class YoneSkills {
             if (trail.expiresAt <= now) return true;
             double remaining = (trail.expiresAt - now) / (double) (trail.expiresAt - trail.startedAt);
             fateSealedTrail(trail.level, trail.origin, trail.forward, 10.0, remaining);
+            return false;
+        });
+        Q_THRUST_VFX.entrySet().removeIf(entry -> {
+            QThrustVfx thrust = entry.getValue();
+            if (!thrust.player.isAlive() || !ChampionManager.isYone(thrust.player)
+                    || thrust.display.isRemoved() || now >= thrust.endsAt) {
+                if (!thrust.display.isRemoved()) thrust.display.discard();
+                return true;
+            }
+            updateQThrust(thrust, now);
             return false;
         });
 
@@ -574,6 +595,44 @@ public final class YoneSkills {
         }
     }
 
+    private static void createQThrust(ServerPlayer player, Vec3 forward, long startedAt, long endsAt) {
+        discardQThrust(player.getUUID());
+        Display.ItemDisplay display = new Display.ItemDisplay(EntityTypes.ITEM_DISPLAY, player.level());
+        ((ItemDisplayAccessor) display).darius$setItemStack(new ItemStack(DariusSkills.YONE_STEEL_SWORD));
+        display.setItemTransform(ItemDisplayContext.FIXED);
+        display.setGlowingTag(true);
+        player.level().addFreshEntity(display);
+        QThrustVfx thrust = new QThrustVfx(player, display, forward, startedAt, endsAt);
+        Q_THRUST_VFX.put(player.getUUID(), thrust);
+        updateQThrust(thrust, startedAt);
+    }
+
+    private static void updateQThrust(QThrustVfx thrust, long now) {
+        double progress = Math.max(0.0, Math.min(1.0,
+                (now - thrust.startedAt) / (double) Math.max(1L, thrust.endsAt - thrust.startedAt)));
+        double extension = 0.48 + 2.65 * (1.0 - Math.pow(1.0 - progress, 3.0));
+        Vec3 right = new Vec3(-thrust.forward.z, 0, thrust.forward.x);
+        Vec3 base = thrust.player.position().add(0, 1.1, 0)
+                .add(right.scale(-0.34)).add(thrust.forward.scale(extension));
+        float yaw = (float) Math.atan2(thrust.forward.x, thrust.forward.z);
+        Quaternionf rotation = new Quaternionf().rotateY(yaw)
+                .rotateX((float) Math.toRadians(90))
+                .rotateZ((float) Math.toRadians(-45));
+        float scale = (float) (1.0 + progress * 0.45);
+        ((DisplayAccessor) thrust.display).darius$setTransformation(new Transformation(
+                new Vector3f(0, 0, 0), rotation,
+                new Vector3f(scale, scale, scale), new Quaternionf()));
+        thrust.display.setPos(base.x, base.y, base.z);
+        Vec3 tip = base.add(thrust.forward.scale(0.8 + progress * 0.55));
+        thrust.player.level().sendParticles(progress > 0.72 ? STEEL_GLOW : STEEL,
+                tip.x, tip.y, tip.z, progress > 0.72 ? 4 : 2, 0.05, 0.06, 0.05, 0.004);
+    }
+
+    private static void discardQThrust(UUID playerId) {
+        QThrustVfx thrust = Q_THRUST_VFX.remove(playerId);
+        if (thrust != null && !thrust.display.isRemoved()) thrust.display.discard();
+    }
+
     private static void qStackCloud(ServerLevel level, ServerPlayer player, int stacks) {
         double time = level.getGameTime() * (0.22 + stacks * 0.06);
         int points = 8 + stacks * 6;
@@ -645,8 +704,8 @@ public final class YoneSkills {
         body.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.CHAINMAIL_CHESTPLATE));
         body.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.CHAINMAIL_LEGGINGS));
         body.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.CHAINMAIL_BOOTS));
-        body.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(DariusSkills.YONE_STEEL_SWORD));
-        body.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(DariusSkills.YONE_AZAKANA_SWORD));
+        body.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(DariusSkills.YONE_AZAKANA_SWORD));
+        body.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(DariusSkills.YONE_STEEL_SWORD));
         level.addFreshEntity(body);
         return body;
     }
@@ -953,6 +1012,8 @@ public final class YoneSkills {
     }
     private record SpiritMarkVisual(Display.ItemDisplay display, LivingEntity target) {}
     private record ShieldVfx(ServerPlayer player, int hits, long expiresAt) {}
+    private record QThrustVfx(ServerPlayer player, Display.ItemDisplay display, Vec3 forward,
+                              long startedAt, long endsAt) {}
     private record FateTrailVfx(ServerLevel level, Vec3 origin, Vec3 forward,
                                 long startedAt, long expiresAt) {}
 }
