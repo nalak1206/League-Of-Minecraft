@@ -387,10 +387,10 @@ public final class YoneSkills {
         }
         fateSealedTrail(level, origin, cast.forward, R_RANGE, 1.0);
         FATE_TRAILS.add(new FateTrailVfx(level, origin, cast.forward,
-                System.currentTimeMillis(), System.currentTimeMillis() + 520));
-        vacuumBurst(level, gather, targets.size());
+                System.currentTimeMillis(), System.currentTimeMillis() + 650));
+        vacuumBurst(level, gather, cast.forward, targets.size());
         level.sendParticles(ParticleTypes.SWEEP_ATTACK, gather.x, gather.y + 1.0, gather.z,
-                35, 1.5, 1.0, 1.5, 0.05);
+                8, 0.9, 0.65, 0.9, 0.025);
         level.playSound(null, player.blockPosition(), SoundEvents.WIND_CHARGE_THROW,
                 SoundSource.PLAYERS, 1.0f, 0.62f);
         level.playSound(null, player.blockPosition(), SoundEvents.WARDEN_SONIC_BOOM,
@@ -835,75 +835,100 @@ public final class YoneSkills {
     private static void fateChargeVfx(ServerLevel level, ServerPlayer player, Vec3 forward) {
         Vec3 center = player.position().add(0, 1.1, 0);
         Vec3 right = new Vec3(-forward.z, 0, forward.x);
-        for (int i = 0; i < 12; i++) {
-            double angle = Math.PI * 2 * i / 12 + level.getGameTime() * 0.18;
-            Vec3 offset = right.scale(Math.cos(angle) * 0.8).add(0, Math.sin(angle) * 0.8, 0);
-            DustParticleOptions color = i % 2 == 0 ? STEEL_GLOW : CRIMSON_GLOW;
+        for (int i = 0; i < 8; i++) {
+            double angle = Math.PI * 2 * i / 8 + level.getGameTime() * 0.14;
+            Vec3 offset = right.scale(Math.cos(angle) * 0.62).add(0, Math.sin(angle) * 0.7, 0)
+                    .add(forward.scale(Math.sin(angle) * 0.24));
+            DustParticleOptions color = i % 3 == 0 ? STEEL_GLOW : i % 2 == 0 ? CRIMSON_GLOW : SPIRIT;
             level.sendParticles(color, center.x + offset.x, center.y + offset.y, center.z + offset.z,
-                    2, 0.04, 0.04, 0.04, 0);
+                    1, 0.025, 0.025, 0.025, 0);
         }
     }
 
     private static void fateSealedTrail(ServerLevel level, Vec3 origin, Vec3 forward,
                                         double reach, double intensity) {
         Vec3 right = new Vec3(-forward.z, 0, forward.x);
-        int laneCount = intensity > 0.65 ? 3 : intensity > 0.3 ? 2 : 1;
-        for (double d = 0; d <= reach; d += intensity > 0.6 ? 0.2 : 0.34) {
+        boolean impactFrame = intensity > 0.68;
+        double step = impactFrame ? 0.22 : 0.42;
+        for (double d = 0.25; d <= reach; d += step) {
             double t = d / reach;
-            Vec3 base = origin.add(forward.scale(d)).add(0, 0.25 + Math.sin(t * Math.PI) * 0.65, 0);
-            for (double side : new double[]{-1.75, 1.75}) {
-                Vec3 outer = base.add(right.scale(side));
-                level.sendParticles(CRIMSON_GLOW, outer.x, outer.y, outer.z,
-                        laneCount + 1, 0.12, 0.18, 0.12, 0.015);
-            }
-            for (double side : new double[]{-0.82, 0.82}) {
-                Vec3 inner = base.add(right.scale(side));
-                level.sendParticles(SPIRIT, inner.x, inner.y, inner.z,
-                        laneCount, 0.10, 0.16, 0.10, 0.012);
-            }
-            Vec3 steel = base.add(right.scale(-0.18));
-            level.sendParticles(STEEL_GLOW, steel.x, steel.y + 0.08, steel.z,
-                    laneCount + 1, 0.06, 0.12, 0.06, 0.008);
-            level.sendParticles(AZAKANA, base.x, base.y, base.z,
-                    laneCount + 1, 0.18, 0.20, 0.18, 0.018);
-            if (intensity > 0.5 && ((int) (d * 10)) % 7 == 0)
-                level.sendParticles(ParticleTypes.SMOKE, base.x, base.y + 0.25, base.z,
-                        3, 0.55, 0.32, 0.55, 0.025);
-        }
+            Vec3 base = origin.add(forward.scale(d)).add(0, 0.18 + Math.sin(t * Math.PI) * 0.24, 0);
 
-        if (intensity > 0.55) {
-            Vec3 end = origin.add(forward.scale(reach)).add(0, 0.85, 0);
-            for (int angle = -90; angle <= 90; angle += 5) {
-                double radians = Math.toRadians(angle);
-                Vec3 redArc = end.subtract(forward.scale(Math.cos(radians) * 1.45))
-                        .add(right.scale(Math.sin(radians) * 2.5));
-                level.sendParticles(angle % 10 == 0 ? CRIMSON_GLOW : SPIRIT,
-                        redArc.x, redArc.y, redArc.z, 3, 0.08, 0.12, 0.08, 0.01);
-                if (angle % 15 == 0) {
-                    Vec3 steelArc = end.subtract(forward.scale(Math.cos(radians) * 0.9))
-                            .add(right.scale(Math.sin(radians) * 1.45)).add(0, 0.2, 0);
-                    level.sendParticles(STEEL_GLOW, steelArc.x, steelArc.y, steelArc.z,
-                            2, 0.05, 0.08, 0.05, 0.005);
+            // The two bright rails are the readable silhouette of Fate Sealed.
+            for (double side : new double[]{-1.72, 1.72}) {
+                for (double width : impactFrame ? new double[]{-0.16, 0.0, 0.16} : new double[]{0.0}) {
+                    Vec3 rail = base.add(right.scale(side + width));
+                    level.sendParticles(width == 0.0 ? CRIMSON_GLOW : SPIRIT,
+                            rail.x, rail.y, rail.z, impactFrame ? 2 : 1,
+                            0.055, 0.075, 0.055, impactFrame ? 0.008 : 0);
                 }
+            }
+
+            if (impactFrame) {
+                // Parallel black/crimson cuts replace the old X-shaped or filled rectangle look.
+                for (int slash = -2; slash <= 2; slash++) {
+                    double side = slash * 0.48 + Math.sin(t * Math.PI * 3 + slash) * 0.08;
+                    Vec3 cut = base.add(right.scale(side)).add(0, 0.12 + Math.abs(slash) * 0.07, 0);
+                    level.sendParticles(slash % 2 == 0 ? AZAKANA : VOID,
+                            cut.x, cut.y, cut.z, 3, 0.075, 0.13, 0.075, 0.012);
+                    if (slash == -1 || slash == 1)
+                        level.sendParticles(SPIRIT, cut.x, cut.y + 0.08, cut.z,
+                                1, 0.04, 0.06, 0.04, 0);
+                }
+
+                if (((int) (d * 10)) % 8 == 0) {
+                    Vec3 steel = base.add(right.scale(-0.12)).add(0, 0.3, 0);
+                    level.sendParticles(STEEL_GLOW, steel.x, steel.y, steel.z,
+                            1, 0.025, 0.035, 0.025, 0);
+                }
+            }
+            if (!impactFrame && ((int) (d * 10)) % 9 == 0) {
+                level.sendParticles(ParticleTypes.SMOKE, base.x, base.y + 0.12, base.z,
+                        intensity > 0.28 ? 3 : 1, 0.85, 0.20, 0.85, 0.012);
+                level.sendParticles(AZAKANA, base.x, base.y + 0.08, base.z,
+                        1, 0.42, 0.08, 0.42, 0);
             }
         }
     }
 
-    private static void vacuumBurst(ServerLevel level, Vec3 center, int targets) {
-        int rings = 3 + Math.min(4, targets);
-        for (int ring = 0; ring < rings; ring++) {
-            double radius = 2.6 - ring * 0.35;
-            for (int i = 0; i < 28; i++) {
-                double angle = Math.PI * 2 * i / 28 + ring * 0.35;
-                double x = center.x + Math.cos(angle) * radius;
-                double z = center.z + Math.sin(angle) * radius;
-                level.sendParticles(i % 3 == 0 ? STORM_CORE : AZAKANA,
-                        x, center.y + ring * 0.25, z, 2, 0.08, 0.12, 0.08, 0.04);
+    private static void vacuumBurst(ServerLevel level, Vec3 center, Vec3 forward, int targets) {
+        Vec3 right = new Vec3(-forward.z, 0, forward.x);
+        int arcs = 3 + Math.min(2, targets);
+
+        // Curved soul blades fold inward around the gathered targets.
+        for (int arc = 0; arc < arcs; arc++) {
+            double radius = 1.25 + arc * 0.34;
+            for (int angle = -135; angle <= 135; angle += 9) {
+                double radians = Math.toRadians(angle + arc * 7);
+                Vec3 point = center.add(right.scale(Math.sin(radians) * radius))
+                        .add(forward.scale(Math.cos(radians) * radius * 0.62))
+                        .add(0, 0.35 + arc * 0.16 + Math.sin(radians * 2) * 0.16, 0);
+                DustParticleOptions color = arc % 3 == 0 ? CRIMSON_GLOW : arc % 2 == 0 ? AZAKANA : SPIRIT;
+                level.sendParticles(color, point.x, point.y, point.z,
+                        2, 0.055, 0.08, 0.055, 0.006);
             }
         }
-        for (double y = 0; y <= 3.5; y += 0.2)
-            level.sendParticles(y % 0.4 < 0.1 ? CRIMSON_GLOW : STORM_CORE,
-                    center.x, center.y + y, center.z, 8, 0.45 - y * 0.07, 0.08, 0.45 - y * 0.07, 0.04);
+
+        // Several upright black-red cuts give the impact the torn-soul silhouette from the reference.
+        for (int slash = -3; slash <= 3; slash++) {
+            double side = slash * 0.31;
+            for (double y = 0.15; y <= 2.45 - Math.abs(slash) * 0.13; y += 0.18) {
+                Vec3 point = center.add(right.scale(side + y * 0.10 * Math.signum(slash)))
+                        .subtract(forward.scale(0.18 + y * 0.07)).add(0, y, 0);
+                level.sendParticles(slash % 2 == 0 ? VOID : AZAKANA,
+                        point.x, point.y, point.z, 2, 0.045, 0.07, 0.045, 0.005);
+                if (y > 0.7 && slash % 2 != 0)
+                    level.sendParticles(CRIMSON_GLOW, point.x, point.y, point.z,
+                            1, 0.025, 0.04, 0.025, 0);
+            }
+        }
+
+        level.sendParticles(SPIRIT, center.x, center.y + 0.85, center.z,
+                26 + targets * 5, 1.15, 0.85, 1.15, 0.055);
+        level.sendParticles(AZAKANA, center.x, center.y + 0.75, center.z,
+                18 + targets * 3, 0.95, 0.72, 0.95, 0.04);
+        level.sendParticles(ParticleTypes.SMOKE, center.x, center.y + 0.28, center.z,
+                30, 1.55, 0.28, 1.55, 0.035);
     }
 
     private static List<LivingEntity> lineTargets(ServerPlayer player, Vec3 origin, Vec3 forward,
@@ -999,28 +1024,26 @@ public final class YoneSkills {
 
     private static void drawUltTelegraph(ServerLevel level, Vec3 origin, Vec3 forward, double progress) {
         Vec3 right = new Vec3(-forward.z, 0, forward.x);
-        int edgeCount = progress > 0.65 ? 3 : progress > 0.25 ? 2 : 1;
-        for (double d = 0.5; d <= R_RANGE; d += 0.34) {
-            for (double side : new double[]{-2.25, 2.25}) {
+        int edgeCount = progress > 0.72 ? 2 : 1;
+        double pulse = 0.75 + Math.sin(level.getGameTime() * 0.65) * 0.25;
+        for (double d = 0.5; d <= R_RANGE; d += 0.44) {
+            for (double side : new double[]{-1.78, 1.78}) {
                 Vec3 point = origin.add(forward.scale(d)).add(right.scale(side)).add(0, 0.12, 0);
-                level.sendParticles(progress > 0.45 ? CRIMSON_GLOW : SPIRIT,
+                level.sendParticles(progress > 0.52 ? CRIMSON_GLOW : SPIRIT,
                         point.x, point.y, point.z, edgeCount, 0.025, 0.025, 0.025, 0);
             }
-            if (((int) (d * 10)) % 7 == 0) {
-                for (double side = -1.65; side <= 1.65; side += 0.82) {
-                    Vec3 floor = origin.add(forward.scale(d)).add(right.scale(side)).add(0, 0.08, 0);
-                    level.sendParticles(VOID, floor.x, floor.y, floor.z,
-                            progress > 0.7 ? 2 : 1, 0.17, 0.025, 0.17, 0);
-                    if (progress < 0.55)
-                        level.sendParticles(ParticleTypes.SMOKE, floor.x, floor.y + 0.08, floor.z,
-                                1, 0.12, 0.03, 0.12, 0.005);
+            if (progress > 0.58 && ((int) (d * 10)) % 9 == 0) {
+                for (double side : new double[]{-0.72, 0.72}) {
+                    Vec3 inner = origin.add(forward.scale(d)).add(right.scale(side)).add(0, 0.09, 0);
+                    level.sendParticles(SPIRIT, inner.x, inner.y, inner.z,
+                            1, 0.06 * pulse, 0.02, 0.06 * pulse, 0);
                 }
             }
         }
-        for (double side = -2.25; side <= 2.25; side += 0.3) {
+        for (double side = -1.78; side <= 1.78; side += 0.34) {
             for (double d : new double[]{0.5, R_RANGE}) {
                 Vec3 point = origin.add(forward.scale(d)).add(right.scale(side)).add(0, 0.15, 0);
-                level.sendParticles(CRIMSON_GLOW, point.x, point.y, point.z,
+                level.sendParticles(progress > 0.45 ? CRIMSON_GLOW : SPIRIT, point.x, point.y, point.z,
                         edgeCount, 0.02, 0.02, 0.02, 0);
             }
         }
