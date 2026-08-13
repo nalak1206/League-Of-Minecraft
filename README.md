@@ -6,7 +6,7 @@ Minecraft 26.2 Fabric에서 리그 오브 레전드식 챔피언 전투, 아이�
 
 ## 현재 버전
 
-`0.9.0`
+`0.9.1`
 
 완료된 주요 기능:
 
@@ -63,4 +63,4 @@ Windows 빌드:
 3. `docs/HANDOFF.md`
 4. 명령어나 구조가 바뀌면 `README.md`, `docs/DEVELOPMENT.md`, `docs/ARCHITECTURE.md`
 
-큰 업데이트 또는 프로젝트 소유자의 요청이 있을 때 GitHub에 커밋·푸시합니다.
+업데이트 크기와 관계없이 작업 단위가 완성되고 빌드 검증을 통과할 때마다 GitHub에 커밋·푸시합니다.

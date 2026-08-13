@@ -1,6 +1,8 @@
 package kr.darius.skills.shop;
 
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public enum LolShopItem {
@@ -104,6 +106,13 @@ public enum LolShopItem {
     public Category category() { return category; }
     public int price() { return price; }
     public Item icon() { return icon; }
+    public ItemStack createIcon() {
+        ItemStack stack = new ItemStack(icon);
+        if (this == BLADE_OF_THE_RUINED_KING) {
+            stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+        }
+        return stack;
+    }
     public double attackDamage() { return attackDamage; }
     public double maxHealth() { return maxHealth; }
     public double abilityPower() { return abilityPower; }
