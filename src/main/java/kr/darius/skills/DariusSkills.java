@@ -135,6 +135,7 @@ public final class DariusSkills implements ModInitializer {
                     return 1;
                 })));
         AttackEntityCallback.EVENT.register((player, level, hand, entity, hitResult) -> {
+            if (YoneSkills.isBodyEcho(entity)) return InteractionResult.FAIL;
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
                     && CrowdControl.blocksBasicAttack(serverPlayer)) return InteractionResult.FAIL;
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
