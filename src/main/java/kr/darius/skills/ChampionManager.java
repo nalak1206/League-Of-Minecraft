@@ -123,6 +123,7 @@ public final class ChampionManager {
         CHAMPIONS.put(player.getUUID(), champion);
         if (champion == Champion.DARIUS) DariusSkills.equip(player);
         else YoneSkills.equip(player);
+        PlayerEconomy.applyAttributes(player);
         LolPlayerDataStore.save(player.level().getServer());
     }
 

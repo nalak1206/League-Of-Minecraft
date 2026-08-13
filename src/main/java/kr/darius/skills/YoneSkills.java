@@ -12,6 +12,7 @@ import com.mojang.math.Transformation;
 import kr.darius.skills.mixin.DisplayAccessor;
 import kr.darius.skills.mixin.ItemDisplayAccessor;
 import kr.darius.skills.combat.CombatEngine;
+import kr.darius.skills.combat.CriticalStrikeEngine;
 import kr.darius.skills.shop.LegendaryItemEffects;
 import kr.darius.skills.shop.PlayerEconomy;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -143,31 +144,37 @@ public final class YoneSkills {
     /** Returns true when the vanilla attack must be cancelled because the mixed second strike was dealt manually. */
     public static boolean basicAttack(ServerPlayer player, LivingEntity target) {
         if (isActionLocked(player) || player.getAttackStrengthScale(0.5f) < FULL_ATTACK_STRENGTH) return false;
-        boolean critical = isVanillaCritical(player);
+        CriticalStrikeEngine.Roll critical = CriticalStrikeEngine.rollAttack(player);
         boolean spiritBlade = SECOND_BLADE.getOrDefault(player.getUUID(), false);
         SECOND_BLADE.put(player.getUUID(), !spiritBlade);
         if (!spiritBlade) {
-            float total = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE);
+            float total = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE)
+                    * critical.damageMultiplier();
             CombatEngine.deal(player, target, total, CombatEngine.DamageKind.PHYSICAL,
                     CombatEngine.KnockbackPolicy.VANILLA);
             markSpiritDamage(player, target, total);
             playBladeSwing(player, InteractionHand.MAIN_HAND);
-            steelBasicAttackVfx(player.level(), player, target, critical);
-            player.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG,
+            steelBasicAttackVfx(player.level(), player, target, critical.critical());
+            player.level().playSound(null, target.blockPosition(), critical.critical()
+                            ? SoundEvents.PLAYER_ATTACK_CRIT : SoundEvents.PLAYER_ATTACK_STRONG,
                     SoundSource.PLAYERS, 0.68f, 1.15f);
+            player.resetAttackStrengthTicker();
             return true;
         }
 
-        float total = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE);
+        float total = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE)
+                * critical.damageMultiplier();
         CombatEngine.deal(player, target, total * 0.5f, CombatEngine.DamageKind.PHYSICAL,
                 CombatEngine.KnockbackPolicy.VANILLA);
         CombatEngine.deal(player, target, total * 0.5f, CombatEngine.DamageKind.MAGIC,
                 CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
         markSpiritDamage(player, target, total);
         playBladeSwing(player, InteractionHand.OFF_HAND);
-        azakanaBasicAttackVfx(player.level(), player, target, critical);
-        player.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG,
+        azakanaBasicAttackVfx(player.level(), player, target, critical.critical());
+        player.level().playSound(null, target.blockPosition(), critical.critical()
+                        ? SoundEvents.PLAYER_ATTACK_CRIT : SoundEvents.PLAYER_ATTACK_STRONG,
                 SoundSource.PLAYERS, 0.7f, 1.45f);
+        player.resetAttackStrengthTicker();
         return true;
     }
 
@@ -200,14 +207,20 @@ public final class YoneSkills {
         ServerLevel level = player.level();
         playBladeSwing(player, InteractionHand.MAIN_HAND);
         int rank = rank(player, 1, 5);
-        float damage = (float) (qBase(rank) + player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.05);
+        float baseDamage = qBase(rank);
+        float attackDamage = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.05f;
         double reach = cast.empowered ? 10.5 : 4.5;
         double width = cast.empowered ? 1.6 : 0.8;
         List<LivingEntity> targets = lineTargets(player, player.position(), cast.forward, reach, width);
         for (LivingEntity target : targets) {
+            CriticalStrikeEngine.Roll critical = CriticalStrikeEngine.rollAttack(player);
+            float damage = baseDamage + attackDamage * critical.damageMultiplier();
             if (CombatEngine.deal(player, target, damage, CombatEngine.DamageKind.PHYSICAL,
                     CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT)) {
                 markSpiritDamage(player, target, damage);
+                if (critical.critical())
+                    level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0,
+                            target.getZ(), 22, 0.38, 0.58, 0.38, 0.07);
                 if (cast.empowered) {
                     CrowdControl.apply(target, CrowdControl.Type.AIRBORNE, 750);
                     target.setDeltaMovement(target.getDeltaMovement().x, 0.72, target.getDeltaMovement().z);
@@ -555,11 +568,6 @@ public final class YoneSkills {
         Vec3 delta = destination.subtract(player.position());
         if (player.level().noCollision(player, player.getBoundingBox().move(delta)))
             player.teleportTo(destination.x, destination.y, destination.z);
-    }
-
-    private static boolean isVanillaCritical(ServerPlayer player) {
-        return player.fallDistance > 0.0f && !player.onGround() && !player.isInWater()
-                && !player.isSprinting() && !player.isPassenger();
     }
 
     private static void playBladeSwing(ServerPlayer player, InteractionHand hand) {

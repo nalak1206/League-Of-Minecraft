@@ -4,7 +4,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.List;
+import kr.darius.skills.ChampionManager;
 import kr.darius.skills.combat.CombatEngine;
+import kr.darius.skills.combat.CriticalStrikeEngine;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
@@ -41,9 +43,24 @@ public final class LegendaryItemEffects {
             SPELLBLADE_ARMED.put(player.getUUID(), now + 10_000);
     }
 
-    public static void onBasicAttack(ServerPlayer player, LivingEntity target) {
-        if (player.getAttackStrengthScale(0.5f) < FULL_ATTACK_STRENGTH) return;
+    /** Returns true when this method replaced the vanilla charged basic attack. */
+    public static boolean onBasicAttack(ServerPlayer player, LivingEntity target) {
+        if (player.getAttackStrengthScale(0.5f) < FULL_ATTACK_STRENGTH) return false;
         long now = System.currentTimeMillis();
+        boolean replacesVanillaAttack = !ChampionManager.isYone(player)
+                && PlayerEconomy.criticalStrikeChance(player) > 0.0;
+        if (replacesVanillaAttack) {
+            CriticalStrikeEngine.Roll critical = CriticalStrikeEngine.rollAttack(player);
+            float damage = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE)
+                    * critical.damageMultiplier();
+            extraPhysical(player, target, damage);
+            if (critical.critical()) {
+                player.level().sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1,
+                        target.getZ(), 20, 0.4, 0.6, 0.4, 0.06);
+                player.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT,
+                        SoundSource.PLAYERS, 0.9f, 1.05f);
+            }
+        }
         if (PlayerEconomy.owns(player, LolShopItem.TRINITY_FORCE)) {
             player.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, 0, false, false));
             Long armedUntil = SPELLBLADE_ARMED.get(player.getUUID());
@@ -75,10 +92,6 @@ public final class LegendaryItemEffects {
         if (PlayerEconomy.owns(player, LolShopItem.BLACK_CLEAVER)) {
             applyCleaver(player, target, now);
             player.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, 0, false, false));
-        }
-        if (PlayerEconomy.owns(player, LolShopItem.INFINITY_EDGE) && player.getRandom().nextFloat() < 0.25f) {
-            extraPhysical(player, target, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.75f);
-            player.level().sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1, target.getZ(), 16, 0.35, 0.55, 0.35, 0.05);
         }
         if (PlayerEconomy.owns(player, LolShopItem.THE_COLLECTOR)
                 && target.getHealth() <= target.getMaxHealth() * 0.05f) {
@@ -123,6 +136,8 @@ public final class LegendaryItemEffects {
                 player.level().playSound(null, target.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.55f, 1.35f);
             }
         }
+        if (replacesVanillaAttack) player.resetAttackStrengthTicker();
+        return replacesVanillaAttack;
     }
 
     private static void applyCleaver(ServerPlayer player, LivingEntity target, long now) {

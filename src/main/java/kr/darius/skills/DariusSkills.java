@@ -139,8 +139,10 @@ public final class DariusSkills implements ModInitializer {
                     && CrowdControl.blocksBasicAttack(serverPlayer)) return InteractionResult.FAIL;
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
                     && YoneSkills.blocksBasicAttack(serverPlayer)) return InteractionResult.FAIL;
+            boolean replacesVanillaAttack = false;
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
-                    && entity instanceof LivingEntity living) LegendaryItemEffects.onBasicAttack(serverPlayer, living);
+                    && entity instanceof LivingEntity living)
+                replacesVanillaAttack = LegendaryItemEffects.onBasicAttack(serverPlayer, living);
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
                     && ChampionManager.isYone(serverPlayer) && entity instanceof LivingEntity living) {
                 if (YoneSkills.basicAttack(serverPlayer, living)) return InteractionResult.SUCCESS;
@@ -183,7 +185,7 @@ public final class DariusSkills implements ModInitializer {
                     REVERT_TO_DIAMOND.remove(serverPlayer.getUUID());
                 }
             }
-            return InteractionResult.PASS;
+            return replacesVanillaAttack ? InteractionResult.SUCCESS : InteractionResult.PASS;
         });
         ServerTickEvents.END_SERVER_TICK.register(DariusSkills::tickBleeds);
     }

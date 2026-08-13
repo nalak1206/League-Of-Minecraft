@@ -35,9 +35,9 @@ public enum LolShopItem {
     STERAKS_GAGE("스테락의 도전", Category.FIGHTER, 3200, Items.GOAT_HORN, 0, 8.0, 0, 0, 0, 0),
     DEATHS_DANCE("죽음의 무도", Category.FIGHTER, 3300, Items.COPPER_SPEAR, 6.0, 0, 0, 0, 5.0, 0),
 
-    INFINITY_EDGE("무한의 대검", Category.MARKSMAN, 3500, Items.GOLDEN_SWORD, 7.0, 0, 0, 0, 0, 0),
+    INFINITY_EDGE("무한의 대검", Category.MARKSMAN, 3500, Items.GOLDEN_SWORD, 7.5, 0, 0, 0, 0, 0),
     LORD_DOMINIKS_REGARDS("도미닉 경의 인사", Category.MARKSMAN, 3300, Items.CROSSBOW, 3.5, 0, 0, 0, 0, 0),
-    THE_COLLECTOR("징수의 총", Category.MARKSMAN, 3400, Items.GOLDEN_HOE, 5.0, 0, 0, 0, 0, 0),
+    THE_COLLECTOR("징수의 총", Category.MARKSMAN, 3000, Items.GOLDEN_HOE, 5.0, 0, 0, 0, 0, 0),
     KRAKEN_SLAYER("크라켄 학살자", Category.MARKSMAN, 3100, Items.NETHERITE_PICKAXE, 4.5, 0, 0, 0.40, 0, 0.04),
     BLOODTHIRSTER("피바라기", Category.MARKSMAN, 3400, Items.REDSTONE, 8.0, 0, 0, 0, 0, 0),
     STATIKK_SHIV("스태틱의 단검", Category.MARKSMAN, 2800, Items.BREEZE_ROD, 4.5, 0, 0, 0.30, 0, 0.04),
@@ -120,5 +120,12 @@ public enum LolShopItem {
     public double attackSpeed() { return attackSpeed; }
     public double armor() { return armor; }
     public double movementSpeed() { return movementSpeed; }
+    public double criticalStrikeChance() {
+        return switch (this) {
+            case INFINITY_EDGE, LORD_DOMINIKS_REGARDS, THE_COLLECTOR -> 0.25;
+            default -> 0.0;
+        };
+    }
+    public double bonusCriticalStrikeDamage() { return this == INFINITY_EDGE ? 0.30 : 0.0; }
     public boolean isFinishedBoots() { return category == Category.BOOTS && this != BOOTS; }
 }

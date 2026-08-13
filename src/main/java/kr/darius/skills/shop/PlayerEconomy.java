@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import kr.darius.skills.ChampionManager;
 import kr.darius.skills.LolPlayerDataStore;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
@@ -60,6 +61,7 @@ public final class PlayerEconomy {
             damage += item.attackDamage(); health += item.maxHealth(); attackSpeed += item.attackSpeed();
             armor += item.armor(); move += item.movementSpeed();
         }
+        damage += excessCriticalStrikeAttackDamage(player, account);
         modifier(player, Attributes.ATTACK_DAMAGE, DAMAGE_ID, damage, AttributeModifier.Operation.ADD_VALUE);
         modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, health, AttributeModifier.Operation.ADD_VALUE);
         modifier(player, Attributes.ATTACK_SPEED, SPEED_ID, attackSpeed, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
@@ -81,11 +83,29 @@ public final class PlayerEconomy {
     }
 
     public static double attackDamage(ServerPlayer player) {
-        return account(player).items.stream().mapToDouble(LolShopItem::attackDamage).sum();
+        Account account = account(player);
+        return account.items.stream().mapToDouble(LolShopItem::attackDamage).sum()
+                + excessCriticalStrikeAttackDamage(player, account);
     }
 
     public static double attackSpeed(ServerPlayer player) {
         return account(player).items.stream().mapToDouble(LolShopItem::attackSpeed).sum();
+    }
+
+    public static double criticalStrikeChance(ServerPlayer player) {
+        return account(player).items.stream().mapToDouble(LolShopItem::criticalStrikeChance).sum();
+    }
+
+    public static double bonusCriticalStrikeDamage(ServerPlayer player) {
+        return account(player).items.stream().mapToDouble(LolShopItem::bonusCriticalStrikeDamage).sum();
+    }
+
+    private static double excessCriticalStrikeAttackDamage(ServerPlayer player, Account account) {
+        if (!ChampionManager.isYone(player)) return 0.0;
+        double rawChance = account.items.stream().mapToDouble(LolShopItem::criticalStrikeChance).sum();
+        // PC Yone converts each 1% critical chance above 100% into 0.5 LoL AD.
+        // Combat stats use one tenth of LoL's scale, so 50% excess becomes 2.5 damage.
+        return Math.max(0.0, rawChance * 2.0 - 1.0) * 5.0;
     }
 
     public static boolean owns(ServerPlayer player, LolShopItem item) {
