@@ -1,6 +1,7 @@
 package kr.darius.skills.shop;
 
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -30,44 +31,44 @@ public enum LolShopItem {
     TRINITY_FORCE("삼위일체", Category.FIGHTER, 3333, Items.MUSIC_DISC_13, 3.6, 6.66, 0, 0.30, 0, 0),
     BLACK_CLEAVER("칠흑의 양날 도끼", Category.FIGHTER, 3000, Items.NETHERITE_AXE, 4.5, 8.0, 0, 0, 0, 0),
     BLADE_OF_THE_RUINED_KING("몰락한 왕의 검", Category.FIGHTER, 3200, Items.IRON_SWORD, 4.0, 0, 0, 0.25, 0, 0),
-    SUNDERED_SKY("갈라진 하늘", Category.FIGHTER, 3100, Items.GOLDEN_AXE, 4.5, 9.0, 0, 0, 0, 0),
-    STERAKS_GAGE("스테락의 도전", Category.FIGHTER, 3200, Items.LEATHER, 0, 8.0, 0, 0, 0, 0),
-    DEATHS_DANCE("죽음의 무도", Category.FIGHTER, 3300, Items.CHAINMAIL_CHESTPLATE, 6.0, 0, 0, 0, 5.0, 0),
+    SUNDERED_SKY("갈라진 하늘", Category.FIGHTER, 3100, Items.NETHERITE_SPEAR, 4.5, 9.0, 0, 0, 0, 0),
+    STERAKS_GAGE("스테락의 도전", Category.FIGHTER, 3200, Items.GOAT_HORN, 0, 8.0, 0, 0, 0, 0),
+    DEATHS_DANCE("죽음의 무도", Category.FIGHTER, 3300, Items.COPPER_SPEAR, 6.0, 0, 0, 0, 5.0, 0),
 
-    INFINITY_EDGE("무한의 대검", Category.MARKSMAN, 3500, Items.DIAMOND_SWORD, 7.0, 0, 0, 0, 0, 0),
-    LORD_DOMINIKS_REGARDS("도미닉 경의 인사", Category.MARKSMAN, 3300, Items.ARROW, 3.5, 0, 0, 0, 0, 0),
-    THE_COLLECTOR("징수의 총", Category.MARKSMAN, 3400, Items.CROSSBOW, 5.0, 0, 0, 0, 0, 0),
-    KRAKEN_SLAYER("크라켄 학살자", Category.MARKSMAN, 3100, Items.PRISMARINE_SHARD, 4.5, 0, 0, 0.40, 0, 0.04),
+    INFINITY_EDGE("무한의 대검", Category.MARKSMAN, 3500, Items.GOLDEN_SWORD, 7.0, 0, 0, 0, 0, 0),
+    LORD_DOMINIKS_REGARDS("도미닉 경의 인사", Category.MARKSMAN, 3300, Items.CROSSBOW, 3.5, 0, 0, 0, 0, 0),
+    THE_COLLECTOR("징수의 총", Category.MARKSMAN, 3400, Items.GOLDEN_HOE, 5.0, 0, 0, 0, 0, 0),
+    KRAKEN_SLAYER("크라켄 학살자", Category.MARKSMAN, 3100, Items.NETHERITE_PICKAXE, 4.5, 0, 0, 0.40, 0, 0.04),
     BLOODTHIRSTER("피바라기", Category.MARKSMAN, 3400, Items.REDSTONE, 8.0, 0, 0, 0, 0, 0),
-    STATIKK_SHIV("스태틱의 단검", Category.MARKSMAN, 2800, Items.COPPER_INGOT, 4.5, 0, 0, 0.30, 0, 0.04),
+    STATIKK_SHIV("스태틱의 단검", Category.MARKSMAN, 2800, Items.BREEZE_ROD, 4.5, 0, 0, 0.30, 0, 0.04),
 
-    YOUMUUS_GHOSTBLADE("요우무의 유령검", Category.ASSASSIN, 2800, Items.IRON_SWORD, 5.5, 0, 0, 0, 0, 0.06),
-    EDGE_OF_NIGHT("밤의 끝자락", Category.ASSASSIN, 3000, Items.OBSIDIAN, 5.0, 5.0, 0, 0, 0, 0),
-    SERYLDAS_GRUDGE("세릴다의 원한", Category.ASSASSIN, 3000, Items.SPECTRAL_ARROW, 4.5, 0, 0, 0, 0, 0),
-    OPPORTUNITY("기회", Category.ASSASSIN, 2700, Items.ENDER_PEARL, 5.5, 0, 0, 0, 0, 0.04),
-    AXIOM_ARC("원칙의 원", Category.ASSASSIN, 3000, Items.RECOVERY_COMPASS, 5.5, 0, 0, 0, 0, 0),
-    PROFANE_HYDRA("불경한 히드라", Category.ASSASSIN, 3200, Items.NETHERITE_HOE, 6.0, 0, 0, 0, 0, 0),
+    YOUMUUS_GHOSTBLADE("요우무의 유령검", Category.ASSASSIN, 2800, Items.NETHERITE_SWORD, 5.5, 0, 0, 0, 0, 0.06),
+    EDGE_OF_NIGHT("밤의 끝자락", Category.ASSASSIN, 3000, Items.DYED_BUNDLE.pick(DyeColor.PURPLE), 5.0, 5.0, 0, 0, 0, 0),
+    SERYLDAS_GRUDGE("세릴다의 원한", Category.ASSASSIN, 3000, Items.IRON_SPEAR, 4.5, 0, 0, 0, 0, 0),
+    OPPORTUNITY("벼락폭풍검", Category.ASSASSIN, 2700, Items.COPPER_SWORD, 5.5, 0, 0, 0, 0, 0.04),
+    AXIOM_ARC("원칙의 원형낫", Category.ASSASSIN, 3000, Items.ENDER_EYE, 5.5, 0, 0, 0, 0, 0),
+    PROFANE_HYDRA("불경한 히드라", Category.ASSASSIN, 3200, Items.BONE, 6.0, 0, 0, 0, 0, 0),
 
-    RABADONS_DEATHCAP("라바돈의 죽음모자", Category.MAGE, 3600, Items.LEATHER_HELMET, 0, 0, 130, 0, 0, 0),
+    RABADONS_DEATHCAP("라바돈의 죽음모자", Category.MAGE, 3600, Items.DRAGON_EGG, 0, 0, 130, 0, 0, 0),
     ZHONYAS_HOURGLASS("존야의 모래시계", Category.MAGE, 3250, Items.CLOCK, 0, 0, 105, 0, 5.0, 0),
-    VOID_STAFF("공허의 지팡이", Category.MAGE, 3000, Items.STICK, 0, 0, 95, 0, 0, 0),
-    LIANDRYS_TORMENT("리안드리의 고통", Category.MAGE, 3000, Items.BLAZE_POWDER, 0, 6.0, 70, 0, 0, 0),
-    RYLAIS_CRYSTAL_SCEPTER("라일라이의 수정홀", Category.MAGE, 2600, Items.AMETHYST_SHARD, 0, 8.0, 65, 0, 0, 0),
-    SHADOWFLAME("그림자불꽃", Category.MAGE, 3200, Items.FIRE_CHARGE, 0, 0, 110, 0, 0, 0),
+    VOID_STAFF("공허의 지팡이", Category.MAGE, 3000, Items.BREEZE_ROD, 0, 0, 95, 0, 0, 0),
+    LIANDRYS_TORMENT("리안드리의 고통", Category.MAGE, 3000, Items.SKELETON_SKULL, 0, 6.0, 70, 0, 0, 0),
+    RYLAIS_CRYSTAL_SCEPTER("라일라이의 수정홀", Category.MAGE, 2600, Items.DIAMOND_SPEAR, 0, 8.0, 65, 0, 0, 0),
+    SHADOWFLAME("그림자불꽃", Category.MAGE, 3200, Items.NETHERITE_HELMET, 0, 0, 110, 0, 0, 0),
 
-    HEARTSTEEL("강철의 심장", Category.TANK, 3000, Items.ANVIL, 0, 18.0, 0, 0, 0, 0),
-    SUNFIRE_AEGIS("태양불꽃 방패", Category.TANK, 2700, Items.MAGMA_BLOCK, 0, 7.0, 0, 0, 5.0, 0),
-    THORNMAIL("가시 갑옷", Category.TANK, 2450, Items.CACTUS, 0, 7.0, 0, 0, 7.5, 0),
-    WARMOGS_ARMOR("워모그의 갑옷", Category.TANK, 3100, Items.GOLDEN_APPLE, 0, 20.0, 0, 0, 0, 0.05),
-    KAENIC_ROOKERN("케이닉 루컨", Category.TANK, 2900, Items.SCULK_CATALYST, 0, 8.0, 0, 0, 0, 0),
-    JAKSHO("해신 작쇼", Category.TANK, 3200, Items.TURTLE_HELMET, 0, 7.0, 0, 0, 5.0, 0),
+    HEARTSTEEL("강철심장", Category.TANK, 3000, Items.CHISELED_COPPER.weathering().unaffected(), 0, 18.0, 0, 0, 0, 0),
+    SUNFIRE_AEGIS("태양불꽃 방패", Category.TANK, 2700, Items.GOLDEN_APPLE, 0, 7.0, 0, 0, 5.0, 0),
+    THORNMAIL("가시 갑옷", Category.TANK, 2450, Items.CHAINMAIL_CHESTPLATE, 0, 7.0, 0, 0, 7.5, 0),
+    WARMOGS_ARMOR("워모그의 갑옷", Category.TANK, 3100, Items.LEATHER_CHESTPLATE, 0, 20.0, 0, 0, 0, 0.05),
+    KAENIC_ROOKERN("케이닉 루컨", Category.TANK, 2900, Items.RECOVERY_COMPASS, 0, 8.0, 0, 0, 0, 0),
+    JAKSHO("해신 작쇼", Category.TANK, 3200, Items.NETHERITE_CHESTPLATE, 0, 7.0, 0, 0, 5.0, 0),
 
-    LOCKET_OF_THE_IRON_SOLARI("강철의 솔라리 펜던트", Category.SUPPORT, 2200, Items.GOLD_INGOT, 0, 4.0, 0, 0, 2.5, 0),
-    REDEMPTION("구원", Category.SUPPORT, 2300, Items.GHAST_TEAR, 0, 4.0, 60, 0, 0, 0),
-    SHURELYAS_BATTLESONG("슈렐리아의 군가", Category.SUPPORT, 2200, Items.MUSIC_DISC_CAT, 0, 4.0, 55, 0, 0, 0.05),
-    KNIGHTS_VOW("기사의 맹세", Category.SUPPORT, 2300, Items.LEAD, 0, 8.0, 0, 0, 3.0, 0),
-    ARDENT_CENSER("불타는 향로", Category.SUPPORT, 2200, Items.BLAZE_ROD, 0, 0, 60, 0, 0, 0.04),
-    IMPERIAL_MANDATE("제국의 명령", Category.SUPPORT, 2250, Items.WRITABLE_BOOK, 0, 4.0, 60, 0, 0, 0);
+    LOCKET_OF_THE_IRON_SOLARI("강철의 솔라리 펜던트", Category.SUPPORT, 2200, Items.GOLDEN_CHESTPLATE, 0, 4.0, 0, 0, 2.5, 0),
+    REDEMPTION("구원", Category.SUPPORT, 2300, Items.MAGMA_CREAM, 0, 4.0, 60, 0, 0, 0),
+    SHURELYAS_BATTLESONG("슈렐리아의 군가", Category.SUPPORT, 2200, Items.GOLDEN_HELMET, 0, 4.0, 55, 0, 0, 0.05),
+    KNIGHTS_VOW("기사의 맹세", Category.SUPPORT, 2300, Items.NETHERITE_HELMET, 0, 8.0, 0, 0, 3.0, 0),
+    ARDENT_CENSER("불타는 향로", Category.SUPPORT, 2200, Items.DIAMOND_SHOVEL, 0, 0, 60, 0, 0, 0.04),
+    IMPERIAL_MANDATE("제국의 명령", Category.SUPPORT, 2250, Items.NETHERITE_SHOVEL, 0, 4.0, 60, 0, 0, 0);
 
     public enum Category {
         STARTER("시작 아이템"), BOOTS("장화"), FIGHTER("전사"), MARKSMAN("원거리 딜러"),
