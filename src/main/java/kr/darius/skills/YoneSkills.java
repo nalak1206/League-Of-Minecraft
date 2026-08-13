@@ -74,8 +74,10 @@ public final class YoneSkills {
     private static final Map<UUID, Boolean> E_RETURN_WARNED = new HashMap<>();
     private static final Map<UUID, ShieldVfx> SHIELD_VFX = new HashMap<>();
     private static final List<FateTrailVfx> FATE_TRAILS = new ArrayList<>();
+    private static final List<SpiritTravel> SPIRIT_TRAVELS = new ArrayList<>();
     private static final Map<UUID, Long> ACTION_LOCK_UNTIL = new HashMap<>();
     private static final Map<UUID, PositionLock> W_POSITION_LOCKS = new HashMap<>();
+    private static final Map<UUID, PositionLock> Q_POSITION_LOCKS = new HashMap<>();
     private static final Map<UUID, Long> Q_POSE_UNTIL = new HashMap<>();
     private static final Map<UUID, Boolean> SECOND_BLADE = new HashMap<>();
     private static final List<PendingCast> PENDING_CASTS = new ArrayList<>();
@@ -129,11 +131,14 @@ public final class YoneSkills {
         Q_STATES.remove(player.getUUID());
         Q_DASHES.removeIf(dash -> dash.player == player);
         EState spirit = E_STATES.remove(player.getUUID());
+        SpiritTravel travel = removeSpiritTravel(player);
         E_RETURN_WARNED.remove(player.getUUID());
-        if (spirit != null) returnToBody(player, spirit);
+        if (spirit != null) forceReturnToBody(player, spirit);
+        else if (travel != null && travel.returnState != null) forceReturnToBody(player, travel.returnState);
         SHIELD_VFX.remove(player.getUUID());
         ACTION_LOCK_UNTIL.remove(player.getUUID());
         W_POSITION_LOCKS.remove(player.getUUID());
+        Q_POSITION_LOCKS.remove(player.getUUID());
         Q_POSE_UNTIL.remove(player.getUUID());
         PENDING_CASTS.removeIf(cast -> cast.player == player);
         ULT_ECHO_SOUNDS.removeIf(sound -> sound.player == player);
@@ -207,6 +212,9 @@ public final class YoneSkills {
         cast[1] = now;
         player.startUsingItem(InteractionHand.OFF_HAND);
         Q_POSE_UNTIL.put(player.getUUID(), now + 140);
+        lock(player, 140);
+        if (!tornado)
+            Q_POSITION_LOCKS.put(player.getUUID(), new PositionLock(player.position(), now + 140));
         drawQTelegraph(player.level(), player.position(), forward, tornado);
         player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP,
                 SoundSource.PLAYERS, 0.55f, tornado ? 0.75f : 1.45f);
@@ -313,7 +321,7 @@ public final class YoneSkills {
             if (now - active.startedAt < E_MIN_RECAST_MS) return;
             E_STATES.remove(player.getUUID());
             E_RETURN_WARNED.remove(player.getUUID());
-            returnToBody(player, active);
+            beginReturnToBody(player, active);
             return;
         }
         long[] cast = LAST_CAST.computeIfAbsent(player.getUUID(), id -> new long[5]);
@@ -327,8 +335,9 @@ public final class YoneSkills {
         E_RETURN_WARNED.remove(player.getUUID());
         SECOND_BLADE.put(player.getUUID(), false);
         cast[2] = now;
-        lock(player, 225);
-        dash(player, forward, 3.0);
+        lock(player, 300);
+        SPIRIT_TRAVELS.removeIf(travel -> travel.player == player);
+        SPIRIT_TRAVELS.add(new SpiritTravel(player, body.add(forward.scale(3.0)), 5, null));
         player.addEffect(new MobEffectInstance(MobEffects.SPEED, 105, 1, false, false));
         spiritBurst(player.level(), body, 55);
         spiritAfterimage(player.level(), player, 1.0f);
@@ -407,6 +416,7 @@ public final class YoneSkills {
         Q_STATES.entrySet().removeIf(entry -> entry.getValue().expiresAt <= now);
         ACTION_LOCK_UNTIL.entrySet().removeIf(entry -> entry.getValue() <= now);
         W_POSITION_LOCKS.entrySet().removeIf(entry -> entry.getValue().expiresAt <= now);
+        Q_POSITION_LOCKS.entrySet().removeIf(entry -> entry.getValue().expiresAt <= now);
         Iterator<SmoothDash> dashes = Q_DASHES.iterator();
         while (dashes.hasNext()) {
             SmoothDash dash = dashes.next();
@@ -417,6 +427,30 @@ public final class YoneSkills {
             }
             dash.ticksRemaining--;
             if (dash.ticksRemaining <= 0) dashes.remove();
+        }
+        Iterator<SpiritTravel> travels = SPIRIT_TRAVELS.iterator();
+        while (travels.hasNext()) {
+            SpiritTravel travel = travels.next();
+            if (!travel.player.isAlive() || !ChampionManager.isYone(travel.player)) {
+                if (travel.returnState != null) discardSpiritVisuals(travel.returnState);
+                travels.remove();
+                continue;
+            }
+            Vec3 from = travel.player.position();
+            Vec3 step = travel.target.subtract(from).scale(1.0 / Math.max(1, travel.ticksRemaining));
+            Vec3 next = from.add(step);
+            travel.player.teleportTo(next.x, next.y, next.z);
+            travel.player.setDeltaMovement(Vec3.ZERO);
+            travel.player.hurtMarked = true;
+            drawReturnTrail(travel.player.level(), from, next);
+            spiritAfterimage(travel.player.level(), travel.player,
+                    travel.returnState == null ? 0.75f : 1.0f);
+            travel.ticksRemaining--;
+            if (travel.ticksRemaining <= 0) {
+                travel.player.teleportTo(travel.target.x, travel.target.y, travel.target.z);
+                if (travel.returnState != null) finishReturnToBody(travel.player, travel.returnState);
+                travels.remove();
+            }
         }
         Iterator<UltEchoSound> echoes = ULT_ECHO_SOUNDS.iterator();
         while (echoes.hasNext()) {
@@ -454,6 +488,12 @@ public final class YoneSkills {
             PositionLock wLock = W_POSITION_LOCKS.get(player.getUUID());
             if (wLock != null && wLock.expiresAt > now) {
                 player.teleportTo(wLock.origin.x, wLock.origin.y, wLock.origin.z);
+                player.setDeltaMovement(Vec3.ZERO);
+                player.hurtMarked = true;
+            }
+            PositionLock qLock = Q_POSITION_LOCKS.get(player.getUUID());
+            if (qLock != null && qLock.expiresAt > now) {
+                player.teleportTo(qLock.origin.x, qLock.origin.y, qLock.origin.z);
                 player.setDeltaMovement(Vec3.ZERO);
                 player.hurtMarked = true;
             }
@@ -509,9 +549,10 @@ public final class YoneSkills {
             spiritAfterimage(player.level(), player, (float) remaining);
             updateSpiritMarks(player, state, now);
             if (now >= state.endsAt) {
+                if (isSkillResolving(player, now)) continue;
                 spirits.remove();
                 E_RETURN_WARNED.remove(entry.getKey());
-                returnToBody(player, state);
+                beginReturnToBody(player, state);
             }
         }
     }
@@ -528,7 +569,18 @@ public final class YoneSkills {
                 5, 0.2, 0.2, 0.2, 0.01);
     }
 
-    private static void returnToBody(ServerPlayer player, EState state) {
+    private static void beginReturnToBody(ServerPlayer player, EState state) {
+        player.removeEffect(MobEffects.SPEED);
+        int ticks = Math.max(4, Math.min(10,
+                (int) Math.ceil(player.position().distanceTo(state.origin) / 1.5)));
+        lock(player, ticks * 50L + 50L);
+        SPIRIT_TRAVELS.removeIf(travel -> travel.player == player);
+        SPIRIT_TRAVELS.add(new SpiritTravel(player, state.origin, ticks, state));
+        player.level().playSound(null, player.blockPosition(), SoundEvents.ENDERMAN_TELEPORT,
+                SoundSource.PLAYERS, 0.65f, 0.85f);
+    }
+
+    private static void finishReturnToBody(ServerPlayer player, EState state) {
         int rank = rank(player, 3, 5);
         float repeatRatio = 0.25f + (rank - 1) * 0.025f;
         for (Mark mark : state.damage.values()) {
@@ -542,13 +594,33 @@ public final class YoneSkills {
             snapBackSlash(player.level(), mark.target);
         }
         discardSpiritVisuals(state);
-        Vec3 from = player.position();
-        teleportSafely(player, state.origin);
-        drawReturnTrail(player.level(), from, state.origin);
         player.removeEffect(MobEffects.SPEED);
-        lock(player, 225);
         player.level().playSound(null, player.blockPosition(), SoundEvents.ENDERMAN_TELEPORT,
                 SoundSource.PLAYERS, 0.9f, 0.75f);
+    }
+
+    private static void forceReturnToBody(ServerPlayer player, EState state) {
+        discardSpiritVisuals(state);
+        player.teleportTo(state.origin.x, state.origin.y, state.origin.z);
+        player.removeEffect(MobEffects.SPEED);
+    }
+
+    private static SpiritTravel removeSpiritTravel(ServerPlayer player) {
+        Iterator<SpiritTravel> travels = SPIRIT_TRAVELS.iterator();
+        while (travels.hasNext()) {
+            SpiritTravel travel = travels.next();
+            if (travel.player == player) {
+                travels.remove();
+                return travel;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isSkillResolving(ServerPlayer player, long now) {
+        if (Q_POSE_UNTIL.getOrDefault(player.getUUID(), 0L) > now) return true;
+        if (Q_DASHES.stream().anyMatch(dash -> dash.player == player)) return true;
+        return PENDING_CASTS.stream().anyMatch(cast -> cast.player == player);
     }
 
     public static void showActionBar(ServerPlayer player, long now) {
@@ -1072,6 +1144,19 @@ public final class YoneSkills {
             this.player = player;
             this.forward = forward;
             this.ticksRemaining = ticksRemaining;
+        }
+    }
+    private static final class SpiritTravel {
+        private final ServerPlayer player;
+        private final Vec3 target;
+        private int ticksRemaining;
+        private final EState returnState;
+
+        private SpiritTravel(ServerPlayer player, Vec3 target, int ticksRemaining, EState returnState) {
+            this.player = player;
+            this.target = target;
+            this.ticksRemaining = ticksRemaining;
+            this.returnState = returnState;
         }
     }
     private record UltEchoSound(ServerPlayer player, ServerLevel level, Vec3 position,
