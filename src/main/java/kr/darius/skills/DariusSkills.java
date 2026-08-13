@@ -741,8 +741,10 @@ public final class DariusSkills implements ModInitializer {
         CrowdControl.tick();
         LegendaryItemEffects.tick(server);
         YoneSkills.tick(server);
+        UltimateVoiceLines.tick(server);
         if (server.getTickCount() % 5 == 0) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                if (UltimateVoiceLines.isTypingFor(player)) continue;
                 if (ChampionManager.isDarius(player)) showCooldownActionBar(player, now);
                 else YoneSkills.showActionBar(player, now);
             }

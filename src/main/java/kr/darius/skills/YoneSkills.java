@@ -353,6 +353,7 @@ public final class YoneSkills {
         if (forward == null) return;
         LegendaryItemEffects.onSkillInput(player);
         cast[3] = now;
+        UltimateVoiceLines.shout(player, ChampionManager.Champion.YONE);
         lock(player, 1_200);
         PENDING_CASTS.add(new PendingCast(player, Skill.R, forward, now + 750, false));
         drawUltTelegraph(player.level(), player.position(), forward, 0.0);
@@ -365,7 +366,6 @@ public final class YoneSkills {
     private static void executeR(PendingCast cast) {
         ServerPlayer player = cast.player;
         ServerLevel level = player.level();
-        UltimateVoiceLines.shout(player, ChampionManager.Champion.YONE);
         player.swing(InteractionHand.MAIN_HAND, true);
         player.swing(InteractionHand.OFF_HAND, true);
         Vec3 origin = player.position();
