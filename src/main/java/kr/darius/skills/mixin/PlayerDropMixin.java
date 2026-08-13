@@ -1,6 +1,7 @@
 package kr.darius.skills.mixin;
 
 import kr.darius.skills.DariusSkills;
+import kr.darius.skills.YoneSkills;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -15,6 +16,6 @@ public abstract class PlayerDropMixin {
             at = @At("HEAD"), cancellable = true)
     private void darius$preventWeaponDrop(ItemStack stack, boolean randomThrow,
                                           CallbackInfoReturnable<ItemEntity> cir) {
-        if (DariusSkills.isDariusWeapon(stack)) cir.setReturnValue(null);
+        if (DariusSkills.isDariusWeapon(stack) || YoneSkills.isYoneWeapon(stack)) cir.setReturnValue(null);
     }
 }
