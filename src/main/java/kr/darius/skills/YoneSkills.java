@@ -69,7 +69,9 @@ public final class YoneSkills {
 
     private static final Map<UUID, long[]> LAST_CAST = new HashMap<>();
     private static final Map<UUID, QState> Q_STATES = new HashMap<>();
+    private static final List<SmoothDash> Q_DASHES = new ArrayList<>();
     private static final Map<UUID, EState> E_STATES = new HashMap<>();
+    private static final Map<UUID, Boolean> E_RETURN_WARNED = new HashMap<>();
     private static final Map<UUID, ShieldVfx> SHIELD_VFX = new HashMap<>();
     private static final List<FateTrailVfx> FATE_TRAILS = new ArrayList<>();
     private static final Map<UUID, Long> ACTION_LOCK_UNTIL = new HashMap<>();
@@ -77,6 +79,7 @@ public final class YoneSkills {
     private static final Map<UUID, Long> Q_POSE_UNTIL = new HashMap<>();
     private static final Map<UUID, Boolean> SECOND_BLADE = new HashMap<>();
     private static final List<PendingCast> PENDING_CASTS = new ArrayList<>();
+    private static final List<UltEchoSound> ULT_ECHO_SOUNDS = new ArrayList<>();
 
     private YoneSkills() {}
 
@@ -124,13 +127,16 @@ public final class YoneSkills {
     public static void reset(ServerPlayer player) {
         LAST_CAST.put(player.getUUID(), new long[5]);
         Q_STATES.remove(player.getUUID());
+        Q_DASHES.removeIf(dash -> dash.player == player);
         EState spirit = E_STATES.remove(player.getUUID());
+        E_RETURN_WARNED.remove(player.getUUID());
         if (spirit != null) returnToBody(player, spirit);
         SHIELD_VFX.remove(player.getUUID());
         ACTION_LOCK_UNTIL.remove(player.getUUID());
         W_POSITION_LOCKS.remove(player.getUUID());
         Q_POSE_UNTIL.remove(player.getUUID());
         PENDING_CASTS.removeIf(cast -> cast.player == player);
+        ULT_ECHO_SOUNDS.removeIf(sound -> sound.player == player);
         SECOND_BLADE.remove(player.getUUID());
         player.stopUsingItem();
         player.removeEffect(MobEffects.SLOWNESS);
@@ -237,7 +243,9 @@ public final class YoneSkills {
             }
         }
         if (cast.empowered) {
-            dash(player, cast.forward, 4.5);
+            Q_DASHES.removeIf(dash -> dash.player == player);
+            Q_DASHES.add(new SmoothDash(player, cast.forward, 6));
+            lock(player, 300);
             Q_STATES.remove(player.getUUID());
             windTrail(level, player.position(), cast.forward, reach);
             level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_KNOCKBACK,
@@ -264,7 +272,6 @@ public final class YoneSkills {
         lock(player, castTime);
         W_POSITION_LOCKS.put(player.getUUID(), new PositionLock(player.position(), now + castTime));
         PENDING_CASTS.add(new PendingCast(player, Skill.W, forward, now + castTime, false));
-        drawConeTelegraph(player.level(), player, forward, 5.5, AZAKANA);
     }
 
     private static void executeW(PendingCast cast) {
@@ -305,6 +312,7 @@ public final class YoneSkills {
         if (active != null) {
             if (now - active.startedAt < E_MIN_RECAST_MS) return;
             E_STATES.remove(player.getUUID());
+            E_RETURN_WARNED.remove(player.getUUID());
             returnToBody(player, active);
             return;
         }
@@ -316,6 +324,7 @@ public final class YoneSkills {
         Vec3 body = player.position();
         ArmorStand bodyEcho = createBodyEcho(player.level(), player, body);
         E_STATES.put(player.getUUID(), new EState(body, now, now + E_DURATION_MS, new HashMap<>(), bodyEcho));
+        E_RETURN_WARNED.remove(player.getUUID());
         SECOND_BLADE.put(player.getUUID(), false);
         cast[2] = now;
         lock(player, 225);
@@ -338,8 +347,10 @@ public final class YoneSkills {
         lock(player, 1_200);
         PENDING_CASTS.add(new PendingCast(player, Skill.R, forward, now + 750, false));
         drawUltTelegraph(player.level(), player.position(), forward, 0.0);
-        player.level().playSound(null, player.blockPosition(), SoundEvents.RESPAWN_ANCHOR_CHARGE,
-                SoundSource.PLAYERS, 0.8f, 0.62f);
+        player.level().playSound(null, player.blockPosition(), SoundEvents.TRIDENT_HIT_GROUND,
+                SoundSource.PLAYERS, 0.75f, 1.5f);
+        player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP,
+                SoundSource.PLAYERS, 0.45f, 0.7f);
     }
 
     private static void executeR(PendingCast cast) {
@@ -380,10 +391,14 @@ public final class YoneSkills {
         vacuumBurst(level, gather, targets.size());
         level.sendParticles(ParticleTypes.SWEEP_ATTACK, gather.x, gather.y + 1.0, gather.z,
                 35, 1.5, 1.0, 1.5, 0.05);
-        level.playSound(null, player.blockPosition(), SoundEvents.ENDER_DRAGON_FLAP,
-                SoundSource.PLAYERS, 1.0f, 1.2f);
-        level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_KNOCKBACK,
-                SoundSource.PLAYERS, 1.0f, 0.6f);
+        level.playSound(null, player.blockPosition(), SoundEvents.WIND_CHARGE_THROW,
+                SoundSource.PLAYERS, 1.0f, 0.62f);
+        level.playSound(null, player.blockPosition(), SoundEvents.WARDEN_SONIC_BOOM,
+                SoundSource.PLAYERS, 0.9f, 0.92f);
+        Vec3 echoPosition = player.position();
+        long echoStart = System.currentTimeMillis();
+        ULT_ECHO_SOUNDS.add(new UltEchoSound(player, level, echoPosition, echoStart + 180, 0.32f, 0.72f));
+        ULT_ECHO_SOUNDS.add(new UltEchoSound(player, level, echoPosition, echoStart + 420, 0.18f, 0.58f));
     }
 
     public static void tick(MinecraftServer server) {
@@ -391,6 +406,26 @@ public final class YoneSkills {
         Q_STATES.entrySet().removeIf(entry -> entry.getValue().expiresAt <= now);
         ACTION_LOCK_UNTIL.entrySet().removeIf(entry -> entry.getValue() <= now);
         W_POSITION_LOCKS.entrySet().removeIf(entry -> entry.getValue().expiresAt <= now);
+        Iterator<SmoothDash> dashes = Q_DASHES.iterator();
+        while (dashes.hasNext()) {
+            SmoothDash dash = dashes.next();
+            if (!dash.player.isAlive() || !ChampionManager.isYone(dash.player)
+                    || !advanceDash(dash.player, dash.forward, 0.75)) {
+                dashes.remove();
+                continue;
+            }
+            dash.ticksRemaining--;
+            if (dash.ticksRemaining <= 0) dashes.remove();
+        }
+        Iterator<UltEchoSound> echoes = ULT_ECHO_SOUNDS.iterator();
+        while (echoes.hasNext()) {
+            UltEchoSound echo = echoes.next();
+            if (now < echo.executeAt) continue;
+            if (echo.player.isAlive())
+                echo.level.playSound(null, echo.position.x, echo.position.y, echo.position.z,
+                        SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, echo.volume, echo.pitch);
+            echoes.remove();
+        }
         Q_POSE_UNTIL.entrySet().removeIf(entry -> {
             if (entry.getValue() > now) return false;
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
@@ -460,16 +495,21 @@ public final class YoneSkills {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             if (player == null || !player.isAlive()) {
                 discardSpiritVisuals(entry.getValue());
+                E_RETURN_WARNED.remove(entry.getKey());
                 spirits.remove();
                 continue;
             }
             EState state = entry.getValue();
             double remaining = Math.max(0.0, (state.endsAt - now) / (double) E_DURATION_MS);
+            if (state.endsAt - now <= 1_000 && E_RETURN_WARNED.putIfAbsent(entry.getKey(), true) == null)
+                player.level().playSound(null, player.blockPosition(), SoundEvents.WARDEN_HEARTBEAT,
+                        SoundSource.PLAYERS, 0.9f, 0.72f);
             drawSpiritLink(player.level(), player.position(), state.origin, remaining);
             spiritAfterimage(player.level(), player, (float) remaining);
             updateSpiritMarks(player, state, now);
             if (now >= state.endsAt) {
                 spirits.remove();
+                E_RETURN_WARNED.remove(entry.getKey());
                 returnToBody(player, state);
             }
         }
@@ -578,6 +618,16 @@ public final class YoneSkills {
     private static void dash(ServerPlayer player, Vec3 forward, double distance) {
         Vec3 destination = player.position().add(forward.scale(distance));
         teleportSafely(player, destination);
+    }
+
+    private static boolean advanceDash(ServerPlayer player, Vec3 forward, double distance) {
+        Vec3 destination = player.position().add(forward.scale(distance));
+        Vec3 delta = destination.subtract(player.position());
+        if (!player.level().noCollision(player, player.getBoundingBox().move(delta))) return false;
+        player.teleportTo(destination.x, destination.y, destination.z);
+        player.setDeltaMovement(Vec3.ZERO);
+        player.hurtMarked = true;
+        return true;
     }
 
     private static void teleportSafely(ServerPlayer player, Vec3 destination) {
@@ -922,19 +972,6 @@ public final class YoneSkills {
         }
     }
 
-    private static void drawConeTelegraph(ServerLevel level, ServerPlayer player, Vec3 forward,
-                                           double reach, DustParticleOptions dust) {
-        Vec3 right = new Vec3(-forward.z, 0, forward.x);
-        for (int angle = -90; angle <= 90; angle += 6) {
-            double radians = Math.toRadians(angle);
-            Vec3 direction = forward.scale(Math.cos(radians)).add(right.scale(Math.sin(radians)));
-            for (double d = 1.0; d <= reach; d += 0.9) {
-                Vec3 p = player.position().add(direction.scale(d)).add(0, 0.18, 0);
-                level.sendParticles(dust, p.x, p.y, p.z, 1, 0.04, 0.04, 0.04, 0);
-            }
-        }
-    }
-
     private static void drawSpiritLink(ServerLevel level, Vec3 from, Vec3 to, double remaining) {
         Vec3 link = to.subtract(from);
         int steps = Math.max(4, Math.min(24, (int) (link.length() * 2)));
@@ -1002,6 +1039,19 @@ public final class YoneSkills {
     private record SpiritMarkVisual(Display.ItemDisplay display, LivingEntity target) {}
     private record ShieldVfx(ServerPlayer player, int hits, long expiresAt) {}
     private record PositionLock(Vec3 origin, long expiresAt) {}
+    private static final class SmoothDash {
+        private final ServerPlayer player;
+        private final Vec3 forward;
+        private int ticksRemaining;
+
+        private SmoothDash(ServerPlayer player, Vec3 forward, int ticksRemaining) {
+            this.player = player;
+            this.forward = forward;
+            this.ticksRemaining = ticksRemaining;
+        }
+    }
+    private record UltEchoSound(ServerPlayer player, ServerLevel level, Vec3 position,
+                                long executeAt, float volume, float pitch) {}
     private record FateTrailVfx(ServerLevel level, Vec3 origin, Vec3 forward,
                                 long startedAt, long expiresAt) {}
 }
