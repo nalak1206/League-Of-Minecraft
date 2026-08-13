@@ -40,7 +40,6 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
@@ -67,7 +66,6 @@ public final class YoneSkills {
     private static final Map<UUID, QState> Q_STATES = new HashMap<>();
     private static final Map<UUID, EState> E_STATES = new HashMap<>();
     private static final Map<UUID, ShieldVfx> SHIELD_VFX = new HashMap<>();
-    private static final Map<UUID, QThrustVfx> Q_THRUST_VFX = new HashMap<>();
     private static final List<FateTrailVfx> FATE_TRAILS = new ArrayList<>();
     private static final Map<UUID, Long> ACTION_LOCK_UNTIL = new HashMap<>();
     private static final Map<UUID, Boolean> SECOND_BLADE = new HashMap<>();
@@ -120,10 +118,10 @@ public final class YoneSkills {
         EState spirit = E_STATES.remove(player.getUUID());
         if (spirit != null) returnToBody(player, spirit);
         SHIELD_VFX.remove(player.getUUID());
-        discardQThrust(player.getUUID());
         ACTION_LOCK_UNTIL.remove(player.getUUID());
         PENDING_CASTS.removeIf(cast -> cast.player == player);
         SECOND_BLADE.remove(player.getUUID());
+        player.stopUsingItem();
         player.removeEffect(MobEffects.SLOWNESS);
         removeYoneWeapons(player);
     }
@@ -187,7 +185,7 @@ public final class YoneSkills {
         cast[1] = now;
         lock(player, castTime);
         PENDING_CASTS.add(new PendingCast(player, Skill.Q, forward, now + castTime, tornado));
-        createQThrust(player, forward, now, now + castTime);
+        player.startUsingItem(InteractionHand.OFF_HAND);
         drawQTelegraph(player.level(), player.position(), forward, tornado);
         player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP,
                 SoundSource.PLAYERS, 0.55f, tornado ? 0.75f : 1.45f);
@@ -196,7 +194,7 @@ public final class YoneSkills {
     private static void executeQ(PendingCast cast) {
         ServerPlayer player = cast.player;
         ServerLevel level = player.level();
-        discardQThrust(player.getUUID());
+        player.stopUsingItem();
         player.swing(InteractionHand.OFF_HAND, true);
         int rank = rank(player, 1, 5);
         float damage = (float) (qBase(rank) + player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.05);
@@ -379,16 +377,6 @@ public final class YoneSkills {
             fateSealedTrail(trail.level, trail.origin, trail.forward, 10.0, remaining);
             return false;
         });
-        Q_THRUST_VFX.entrySet().removeIf(entry -> {
-            QThrustVfx thrust = entry.getValue();
-            if (!thrust.player.isAlive() || !ChampionManager.isYone(thrust.player)
-                    || thrust.display.isRemoved() || now >= thrust.endsAt) {
-                if (!thrust.display.isRemoved()) thrust.display.discard();
-                return true;
-            }
-            updateQThrust(thrust, now);
-            return false;
-        });
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (ChampionManager.isYone(player)) enforceDualBlades(player);
@@ -406,6 +394,7 @@ public final class YoneSkills {
         while (pending.hasNext()) {
             PendingCast cast = pending.next();
             if (!cast.player.isAlive() || !ChampionManager.isYone(cast.player)) {
+                if (cast.skill == Skill.Q) cast.player.stopUsingItem();
                 pending.remove();
                 continue;
             }
@@ -593,44 +582,6 @@ public final class YoneSkills {
             Vec3 point = from.add(delta.scale(i / (double) steps));
             level.sendParticles(dust, point.x, point.y, point.z, count, 0.04, 0.04, 0.04, 0);
         }
-    }
-
-    private static void createQThrust(ServerPlayer player, Vec3 forward, long startedAt, long endsAt) {
-        discardQThrust(player.getUUID());
-        Display.ItemDisplay display = new Display.ItemDisplay(EntityTypes.ITEM_DISPLAY, player.level());
-        ((ItemDisplayAccessor) display).darius$setItemStack(new ItemStack(DariusSkills.YONE_STEEL_SWORD));
-        display.setItemTransform(ItemDisplayContext.FIXED);
-        display.setGlowingTag(true);
-        player.level().addFreshEntity(display);
-        QThrustVfx thrust = new QThrustVfx(player, display, forward, startedAt, endsAt);
-        Q_THRUST_VFX.put(player.getUUID(), thrust);
-        updateQThrust(thrust, startedAt);
-    }
-
-    private static void updateQThrust(QThrustVfx thrust, long now) {
-        double progress = Math.max(0.0, Math.min(1.0,
-                (now - thrust.startedAt) / (double) Math.max(1L, thrust.endsAt - thrust.startedAt)));
-        double extension = 0.48 + 2.65 * (1.0 - Math.pow(1.0 - progress, 3.0));
-        Vec3 right = new Vec3(-thrust.forward.z, 0, thrust.forward.x);
-        Vec3 base = thrust.player.position().add(0, 1.1, 0)
-                .add(right.scale(-0.34)).add(thrust.forward.scale(extension));
-        float yaw = (float) Math.atan2(thrust.forward.x, thrust.forward.z);
-        Quaternionf rotation = new Quaternionf().rotateY(yaw)
-                .rotateX((float) Math.toRadians(90))
-                .rotateZ((float) Math.toRadians(-45));
-        float scale = (float) (1.0 + progress * 0.45);
-        ((DisplayAccessor) thrust.display).darius$setTransformation(new Transformation(
-                new Vector3f(0, 0, 0), rotation,
-                new Vector3f(scale, scale, scale), new Quaternionf()));
-        thrust.display.setPos(base.x, base.y, base.z);
-        Vec3 tip = base.add(thrust.forward.scale(0.8 + progress * 0.55));
-        thrust.player.level().sendParticles(progress > 0.72 ? STEEL_GLOW : STEEL,
-                tip.x, tip.y, tip.z, progress > 0.72 ? 4 : 2, 0.05, 0.06, 0.05, 0.004);
-    }
-
-    private static void discardQThrust(UUID playerId) {
-        QThrustVfx thrust = Q_THRUST_VFX.remove(playerId);
-        if (thrust != null && !thrust.display.isRemoved()) thrust.display.discard();
     }
 
     private static void qStackCloud(ServerLevel level, ServerPlayer player, int stacks) {
@@ -1012,8 +963,6 @@ public final class YoneSkills {
     }
     private record SpiritMarkVisual(Display.ItemDisplay display, LivingEntity target) {}
     private record ShieldVfx(ServerPlayer player, int hits, long expiresAt) {}
-    private record QThrustVfx(ServerPlayer player, Display.ItemDisplay display, Vec3 forward,
-                              long startedAt, long endsAt) {}
     private record FateTrailVfx(ServerLevel level, Vec3 origin, Vec3 forward,
                                 long startedAt, long expiresAt) {}
 }

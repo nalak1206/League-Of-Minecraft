@@ -61,8 +61,7 @@ public final class DariusSkills implements ModInitializer {
             new Item.Properties().axe(ToolMaterial.NETHERITE, -2.0f, -3.0f).rarity(Rarity.EPIC).fireResistant());
     public static final Item NOXIAN_GUILLOTINE = registerWeapon("noxian_guillotine",
             new Item.Properties().axe(ToolMaterial.NETHERITE, -2.0f, -3.2f).rarity(Rarity.EPIC).fireResistant());
-    public static final Item YONE_STEEL_SWORD = registerWeapon("steel_sword",
-            new Item.Properties().sword(ToolMaterial.NETHERITE, 3.0f, -2.4f).rarity(Rarity.RARE).fireResistant());
+    public static final Item YONE_STEEL_SWORD = registerSteelSword();
     public static final Item YONE_AZAKANA_SWORD = registerWeapon("yone_azakana_sword",
             new Item.Properties().sword(ToolMaterial.NETHERITE, 3.0f, -2.4f).rarity(Rarity.EPIC).fireResistant());
     private static final ResourceKey<DamageType> NOXIAN_GUILLOTINE_DAMAGE = ResourceKey.create(
@@ -74,6 +73,14 @@ public final class DariusSkills implements ModInitializer {
         ResourceKey<Item> key = ResourceKey.create(Registries.ITEM,
                 Identifier.fromNamespaceAndPath("darius_skills", path));
         return Registry.register(BuiltInRegistries.ITEM, key, new Item(properties.setId(key)));
+    }
+
+    private static Item registerSteelSword() {
+        ResourceKey<Item> key = ResourceKey.create(Registries.ITEM,
+                Identifier.fromNamespaceAndPath("darius_skills", "steel_sword"));
+        Item.Properties properties = new Item.Properties().sword(ToolMaterial.NETHERITE, 3.0f, -2.4f)
+                .rarity(Rarity.RARE).fireResistant().setId(key);
+        return Registry.register(BuiltInRegistries.ITEM, key, new SteelSwordItem(properties));
     }
     private static final long[] COOLDOWNS_MS = {0, 5_000, 16_000, 100_000, 5_000};
     private static final float[] GUILLOTINE_MAX_HEALTH_RATIOS = {0.01f, 0.05f, 0.07f, 0.10f, 0.15f, 0.35f};
