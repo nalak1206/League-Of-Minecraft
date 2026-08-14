@@ -14,6 +14,8 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import kr.leagueofminecraft.champion.darius.DariusSkills;
 import kr.leagueofminecraft.champion.yone.YoneSkills;
+import kr.leagueofminecraft.champion.ChampionDefinition;
+import kr.leagueofminecraft.champion.ChampionRegistry;
 import kr.leagueofminecraft.shop.LolShop;
 import kr.leagueofminecraft.shop.PlayerEconomy;
 import kr.leagueofminecraft.shop.LegendaryItemEffects;
@@ -148,12 +150,10 @@ public final class ChampionManager {
     }
 
     public static void select(ServerPlayer player, Champion champion) {
-        DariusSkills.reset(player);
-        YoneSkills.reset(player);
+        definitions().values().forEach(definition -> definition.reset(player));
         clearChampionWeapons(player);
         CHAMPIONS.put(player.getUUID(), champion);
-        if (champion == Champion.DARIUS) DariusSkills.equip(player);
-        else YoneSkills.equip(player);
+        definition(champion).equip(player);
         PlayerEconomy.applyAttributes(player);
         LolPlayerDataStore.save(player.level().getServer());
     }
@@ -163,8 +163,7 @@ public final class ChampionManager {
 
     public static void cast(ServerPlayer player, int wireSkill) {
         if (CrowdControl.blocksSkills(player)) return;
-        if (isDarius(player)) DariusSkills.castSelected(player, wireSkill);
-        else YoneSkills.cast(player, wireSkill);
+        definition(champion(player)).cast(player, wireSkill);
     }
 
     static Map<UUID, Champion> champions() { return Map.copyOf(CHAMPIONS); }
@@ -182,20 +181,31 @@ public final class ChampionManager {
 
     static void onJoin(ServerPlayer player) {
         clearChampionWeapons(player);
-        if (isDarius(player)) DariusSkills.equip(player);
-        else YoneSkills.equip(player);
+        definition(champion(player)).equip(player);
         PlayerEconomy.applyAttributes(player);
     }
 
     private static void clearChampionWeapons(ServerPlayer player) {
         for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
             ItemStack stack = player.getInventory().getItem(slot);
-            if (DariusSkills.isDariusWeapon(stack) || YoneSkills.isYoneWeapon(stack))
+            if (definitions().values().stream().anyMatch(definition -> definition.isChampionWeapon(stack)))
                 player.getInventory().setItem(slot, ItemStack.EMPTY);
         }
         ItemStack offhand = player.getOffhandItem();
-        if (DariusSkills.isDariusWeapon(offhand) || YoneSkills.isYoneWeapon(offhand))
+        if (definitions().values().stream().anyMatch(definition -> definition.isChampionWeapon(offhand)))
             player.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+    }
+
+    public static void reduceUltimateCooldown(ServerPlayer player, long millis) {
+        definition(champion(player)).reduceUltimateCooldown(player, Math.max(0L, millis));
+    }
+
+    private static ChampionDefinition definition(Champion champion) {
+        return ChampionRegistry.require(champion.name());
+    }
+
+    private static Map<String, ChampionDefinition> definitions() {
+        return ChampionRegistry.definitions();
     }
     private static int parseSkill(String value) {
         return switch (value.toLowerCase(Locale.ROOT)) {

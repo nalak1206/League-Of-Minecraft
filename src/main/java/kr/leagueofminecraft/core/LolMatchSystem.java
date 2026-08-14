@@ -34,6 +34,7 @@ public final class LolMatchSystem {
 
     private static void afterDeath(LivingEntity victim, DamageSource source) {
         if (!(source.getEntity() instanceof ServerPlayer killer) || victim == killer) return;
+        LegendaryItemEffects.onTakedown(killer, victim);
         int gold = victim instanceof ServerPlayer ? 300
                 : Math.max(12, Math.min(90, Math.round(victim.getMaxHealth() * 1.5f)));
         int xp = victim instanceof ServerPlayer ? 300

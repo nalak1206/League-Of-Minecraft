@@ -39,8 +39,16 @@ public final class LegendaryItemEffects {
     private static final Map<UUID, Long> ACTIVE_COOLDOWN = new HashMap<>();
     private static final Map<UUID, Long> ZHONYA_UNTIL = new HashMap<>();
     private static final Map<UUID, Long> LAST_COMBAT = new HashMap<>();
+    private static final Map<UUID, Long> COMBAT_STARTED = new HashMap<>();
     private static final Map<UUID, Long> STERAK_COOLDOWN = new HashMap<>();
     private static final Set<UUID> REFLECTING = new HashSet<>();
+    private static final Set<UUID> ITEM_PROC = new HashSet<>();
+    private static final Map<UUID, Long> EDGE_OF_NIGHT_RECHARGE = new HashMap<>();
+    private static final Map<UUID, Long> SUNDERED_SKY_TARGET = new HashMap<>();
+    private static final Map<UUID, Long> OPPORTUNITY_COOLDOWN = new HashMap<>();
+    private static final Map<UUID, Long> IMPERIAL_TARGET_COOLDOWN = new HashMap<>();
+    private static final Map<UUID, Long> TAKEDOWN_GUARD = new HashMap<>();
+    private static final Map<UUID, BurnState> LIANDRY_BURNS = new HashMap<>();
 
     private LegendaryItemEffects() {}
 
@@ -73,8 +81,10 @@ public final class LegendaryItemEffects {
         }
         if (PlayerEconomy.owns(player, LolShopItem.LOCKET_OF_THE_IRON_SOLARI)) {
             for (ServerPlayer ally : player.level().getEntitiesOfClass(ServerPlayer.class,
-                    player.getBoundingBox().inflate(8.0), LivingEntity::isAlive))
+                    player.getBoundingBox().inflate(8.0), LivingEntity::isAlive)) {
                 ally.setAbsorptionAmount(Math.max(ally.getAbsorptionAmount(), 5.0f));
+                applyArdentBuff(player, ally);
+            }
             ACTIVE_COOLDOWN.put(player.getUUID(), now + 90_000);
             return "강철의 솔라리 펜던트: 광역 보호막";
         }
@@ -87,6 +97,7 @@ public final class LegendaryItemEffects {
         }
         if (PlayerEconomy.owns(player, LolShopItem.REDEMPTION)) {
             player.heal((float) (6.0 * (1.0 + PlayerEconomy.healAndShieldPower(player))));
+            applyArdentBuff(player, player);
             for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class,
                     player.getBoundingBox().inflate(8.0), target -> target != player && target.isAlive()))
                 extraMagic(player, target, 3.0f);
@@ -96,20 +107,45 @@ public final class LegendaryItemEffects {
         return "사용할 수 있는 액티브 아이템이 없습니다";
     }
 
+    private static void applyArdentBuff(ServerPlayer owner, ServerPlayer ally) {
+        if (!PlayerEconomy.owns(owner, LolShopItem.ARDENT_CENSER)) return;
+        ally.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 120, 0, false, false));
+        ally.addEffect(new MobEffectInstance(MobEffects.SPEED, 120, 0, false, false));
+    }
+
     public static boolean allowDamage(LivingEntity target) {
-        return ZHONYA_UNTIL.getOrDefault(target.getUUID(), 0L) <= System.currentTimeMillis();
+        long now = System.currentTimeMillis();
+        if (ZHONYA_UNTIL.getOrDefault(target.getUUID(), 0L) > now) return false;
+        if (target instanceof ServerPlayer player
+                && PlayerEconomy.owns(player, LolShopItem.EDGE_OF_NIGHT)
+                && EDGE_OF_NIGHT_RECHARGE.getOrDefault(player.getUUID(), 0L) <= now) {
+            EDGE_OF_NIGHT_RECHARGE.put(player.getUUID(), now + 40_000);
+            player.level().sendParticles(ParticleTypes.PORTAL, player.getX(), player.getY() + 1,
+                    player.getZ(), 24, 0.5, 0.8, 0.5, 0.08);
+            player.level().playSound(null, player.blockPosition(), SoundEvents.SHIELD_BLOCK.value(),
+                    SoundSource.PLAYERS, 0.8f, 0.65f);
+            return false;
+        }
+        return true;
     }
 
     public static void afterDamage(LivingEntity target, net.minecraft.world.damagesource.DamageSource source, float amount) {
         long now = System.currentTimeMillis();
+        long previousCombat = LAST_COMBAT.getOrDefault(target.getUUID(), 0L);
+        if (now - previousCombat > 5_000) COMBAT_STARTED.put(target.getUUID(), now);
         LAST_COMBAT.put(target.getUUID(), now);
-        if (source.getEntity() instanceof LivingEntity attacker) LAST_COMBAT.put(attacker.getUUID(), now);
+        if (source.getEntity() instanceof LivingEntity attacker) {
+            long attackerPrevious = LAST_COMBAT.getOrDefault(attacker.getUUID(), 0L);
+            if (now - attackerPrevious > 5_000) COMBAT_STARTED.put(attacker.getUUID(), now);
+            LAST_COMBAT.put(attacker.getUUID(), now);
+        }
         if (!(target instanceof ServerPlayer player)) return;
         if (PlayerEconomy.owns(player, LolShopItem.THORNMAIL) && source.getEntity() instanceof LivingEntity attacker
                 && attacker != player && REFLECTING.add(player.getUUID())) {
             try {
                 CombatEngine.deal(player, attacker, 1.0f + (float) player.getAttributeValue(Attributes.ARMOR) * 0.15f,
                         CombatEngine.DamageKind.MAGIC, CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
+                attacker.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 60, 0, false, false));
             } finally {
                 REFLECTING.remove(player.getUUID());
             }
@@ -120,6 +156,52 @@ public final class LegendaryItemEffects {
             player.setAbsorptionAmount(Math.max(player.getAbsorptionAmount(), player.getMaxHealth() * 0.35f));
             STERAK_COOLDOWN.put(player.getUUID(), now + 90_000);
         }
+    }
+
+    /** Applies legendary passives that trigger when a champion damage instance lands. */
+    public static void onChampionDamage(ServerPlayer player, LivingEntity target,
+                                        float damage, CombatEngine.DamageKind kind) {
+        if (!ITEM_PROC.add(player.getUUID())) return;
+        long now = System.currentTimeMillis();
+        try {
+            if (kind == CombatEngine.DamageKind.PHYSICAL && PlayerEconomy.owns(player, LolShopItem.BLACK_CLEAVER))
+                applyCleaver(player, target, now);
+            if (PlayerEconomy.owns(player, LolShopItem.LIANDRYS_TORMENT))
+                LIANDRY_BURNS.put(target.getUUID(), new BurnState(player, target, now + 3_000, now + 1_000));
+            if (PlayerEconomy.owns(player, LolShopItem.RYLAIS_CRYSTAL_SCEPTER))
+                target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 20, 1, false, false));
+            if (kind == CombatEngine.DamageKind.PHYSICAL && PlayerEconomy.owns(player, LolShopItem.SERYLDAS_GRUDGE))
+                target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 20, 0, false, false));
+            if (PlayerEconomy.owns(player, LolShopItem.IMPERIAL_MANDATE)
+                    && target.hasEffect(MobEffects.SLOWNESS)
+                    && IMPERIAL_TARGET_COOLDOWN.getOrDefault(target.getUUID(), 0L) <= now) {
+                extraMagic(player, target, 2.0f + (float) PlayerEconomy.abilityPower(player) * 0.10f);
+                IMPERIAL_TARGET_COOLDOWN.put(target.getUUID(), now + 6_000);
+            }
+            if (kind == CombatEngine.DamageKind.PHYSICAL && PlayerEconomy.owns(player, LolShopItem.OPPORTUNITY)
+                    && OPPORTUNITY_COOLDOWN.getOrDefault(player.getUUID(), 0L) <= now) {
+                extraPhysical(player, target, 1.0f + (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.15f);
+                player.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, 0, false, false));
+                OPPORTUNITY_COOLDOWN.put(player.getUUID(), now + 8_000);
+            }
+            if (PlayerEconomy.owns(player, LolShopItem.THE_COLLECTOR)
+                    && target.getHealth() <= target.getMaxHealth() * 0.05f)
+                extraPhysical(player, target, target.getHealth() + 1.0f);
+        } finally {
+            ITEM_PROC.remove(player.getUUID());
+        }
+    }
+
+    public static void onTakedown(ServerPlayer killer, LivingEntity target) {
+        long now = System.currentTimeMillis();
+        if (TAKEDOWN_GUARD.getOrDefault(target.getUUID(), 0L) > now) return;
+        TAKEDOWN_GUARD.put(target.getUUID(), now + 2_000);
+        if (PlayerEconomy.owns(killer, LolShopItem.DEATHS_DANCE))
+            killer.heal(killer.getMaxHealth() * 0.12f);
+        if (PlayerEconomy.owns(killer, LolShopItem.DEATHS_DANCE))
+            killer.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 60, 0, false, false));
+        if (PlayerEconomy.owns(killer, LolShopItem.AXIOM_ARC))
+            ChampionManager.reduceUltimateCooldown(killer, 20_000);
     }
 
     public static void onSkillInput(ServerPlayer player) {
@@ -221,12 +303,28 @@ public final class LegendaryItemEffects {
                 player.level().playSound(null, target.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.55f, 1.35f);
             }
         }
+        if (PlayerEconomy.owns(player, LolShopItem.PROFANE_HYDRA)) {
+            for (LivingEntity nearby : player.level().getEntitiesOfClass(LivingEntity.class,
+                    target.getBoundingBox().inflate(2.5), entity -> entity != player && entity != target && entity.isAlive()))
+                extraPhysical(player, nearby, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.20f);
+        }
+        if (PlayerEconomy.owns(player, LolShopItem.SUNDERED_SKY)
+                && SUNDERED_SKY_TARGET.getOrDefault(target.getUUID(), 0L) <= now) {
+            extraPhysical(player, target, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.75f);
+            player.heal(Math.max(1.0f, player.getMaxHealth() * 0.06f));
+            SUNDERED_SKY_TARGET.put(target.getUUID(), now + 8_000);
+            player.level().sendParticles(ParticleTypes.ENCHANTED_HIT, target.getX(), target.getY() + 1,
+                    target.getZ(), 20, 0.35, 0.55, 0.35, 0.08);
+        }
         double lifeSteal = PlayerEconomy.lifeSteal(player);
         if (lifeSteal > 0) {
             double rawAttack = player.getAttributeValue(Attributes.ATTACK_DAMAGE);
             double dealtEstimate = rawAttack * CombatEngine.resistanceMultiplier(
                     CombatEngine.resistanceAfterPenetration(player, target, CombatEngine.DamageKind.PHYSICAL));
             player.heal((float) Math.max(0.0, dealtEstimate * lifeSteal));
+            if (PlayerEconomy.owns(player, LolShopItem.BLOODTHIRSTER)
+                    && player.getHealth() >= player.getMaxHealth() - 0.1f)
+                player.setAbsorptionAmount(Math.max(player.getAbsorptionAmount(), player.getMaxHealth() * 0.08f));
         }
         if (replacesVanillaAttack) player.resetAttackStrengthTicker();
         return replacesVanillaAttack;
@@ -248,13 +346,23 @@ public final class LegendaryItemEffects {
     }
 
     private static void extraPhysical(ServerPlayer player, LivingEntity target, float damage) {
-        CombatEngine.deal(player, target, damage, CombatEngine.DamageKind.PHYSICAL,
-                CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
+        boolean guard = ITEM_PROC.add(player.getUUID());
+        try {
+            CombatEngine.deal(player, target, damage, CombatEngine.DamageKind.PHYSICAL,
+                    CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
+        } finally {
+            if (guard) ITEM_PROC.remove(player.getUUID());
+        }
     }
 
     private static void extraMagic(ServerPlayer player, LivingEntity target, float damage) {
-        CombatEngine.deal(player, target, damage, CombatEngine.DamageKind.MAGIC,
-                CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
+        boolean guard = ITEM_PROC.add(player.getUUID());
+        try {
+            CombatEngine.deal(player, target, damage, CombatEngine.DamageKind.MAGIC,
+                    CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
+        } finally {
+            if (guard) ITEM_PROC.remove(player.getUUID());
+        }
     }
 
     public static void tick(MinecraftServer server) {
@@ -273,6 +381,19 @@ public final class LegendaryItemEffects {
         ACTIVE_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
         ZHONYA_UNTIL.entrySet().removeIf(entry -> entry.getValue() <= now);
         STERAK_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
+        SUNDERED_SKY_TARGET.entrySet().removeIf(entry -> entry.getValue() <= now);
+        OPPORTUNITY_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
+        IMPERIAL_TARGET_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
+        TAKEDOWN_GUARD.entrySet().removeIf(entry -> entry.getValue() <= now);
+        LIANDRY_BURNS.entrySet().removeIf(entry -> {
+            BurnState burn = entry.getValue();
+            if (!burn.target.isAlive() || burn.expiresAt <= now) return true;
+            if (burn.nextTick <= now) {
+                extraMagic(burn.source, burn.target, Math.max(0.5f, burn.target.getMaxHealth() * 0.01f));
+                entry.setValue(new BurnState(burn.source, burn.target, burn.expiresAt, now + 1_000));
+            }
+            return false;
+        });
         if (server.getTickCount() % 20 == 0) for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (!player.isAlive()) continue;
             if (PlayerEconomy.owns(player, LolShopItem.WARMOGS_ARMOR)
@@ -283,9 +404,26 @@ public final class LegendaryItemEffects {
                         player.getBoundingBox().inflate(3.0), target -> target != player && target.isAlive()))
                     extraMagic(player, target, 1.0f + player.getMaxHealth() * 0.01f);
             }
+            if (PlayerEconomy.owns(player, LolShopItem.KAENIC_ROOKERN)
+                    && now - LAST_COMBAT.getOrDefault(player.getUUID(), 0L) >= 12_000)
+                player.setAbsorptionAmount(Math.max(player.getAbsorptionAmount(), player.getMaxHealth() * 0.18f));
+            if (PlayerEconomy.owns(player, LolShopItem.JAKSHO)
+                    && now - LAST_COMBAT.getOrDefault(player.getUUID(), now) <= 5_000
+                    && now - COMBAT_STARTED.getOrDefault(player.getUUID(), now) >= 5_000)
+                player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 30, 0, false, false));
+            if (PlayerEconomy.owns(player, LolShopItem.KNIGHTS_VOW)) {
+                ServerPlayer ally = player.level().getEntitiesOfClass(ServerPlayer.class,
+                        player.getBoundingBox().inflate(8.0), entity -> entity != player && entity.isAlive())
+                        .stream().min(java.util.Comparator.comparingDouble(player::distanceToSqr)).orElse(null);
+                if (ally != null) {
+                    ally.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 30, 0, false, false));
+                    if (now - LAST_COMBAT.getOrDefault(ally.getUUID(), 0L) <= 2_000) player.heal(0.25f);
+                }
+            }
         }
     }
 
     private record RuinedKingState(UUID attacker, int hits, long expiresAt) {}
     private record CleaverState(LivingEntity target, int stacks, long expiresAt) {}
+    private record BurnState(ServerPlayer source, LivingEntity target, long expiresAt, long nextTick) {}
 }

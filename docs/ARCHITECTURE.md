@@ -9,8 +9,10 @@ src/
 │  ├─ ModConstants.java               # 호환 모드 ID와 Identifier 생성
 │  ├─ registry/ModItems.java          # 챔피언 무기 등록
 │  ├─ champion/
-│  │  ├─ darius/DariusSkills.java     # 다리우스 P/Q/W/E/R
-│  │  └─ yone/                        # 요네 P/Q/W/E/R 및 강철 검
+│  │  ├─ ChampionDefinition.java      # 공통 챔피언 계약
+│  │  ├─ ChampionRegistry.java        # 플레이 가능 챔피언 레지스트리
+│  │  ├─ darius/                      # 다리우스 스킬·상태·VFX 서비스
+│  │  └─ yone/                        # 요네 스킬·상태·이동 서비스
 │  ├─ core/                           # 챔피언 선택, 성장, CC, 매치, 저장
 │  ├─ combat/                         # 물리/마법 피해와 치명타 계산
 │  ├─ shop/                           # 상점 GUI, 경제, 아이템 효과
@@ -29,7 +31,7 @@ src/
 
 - `LeagueOfMinecraftMod`가 레지스트리와 게임 시스템을 초기화합니다.
 - `champion`은 `core`, `combat`, `network`, `registry`를 사용합니다.
-- 공통 시스템은 특정 챔피언 구현을 가능한 한 직접 참조하지 않습니다.
+- `ChampionManager`는 `ChampionRegistry`를 통해 챔피언을 호출하며 구현 클래스를 직접 분기하지 않습니다.
 - 새 아이템은 `registry/ModItems`, 새 챔피언은 `champion/<name>`에 추가합니다.
 - 새 네트워크 메시지는 `network`에 두고 진입점에서 등록합니다.
 - 문자열 네임스페이스를 직접 만들지 말고 `ModConstants.id(path)`를 사용합니다.

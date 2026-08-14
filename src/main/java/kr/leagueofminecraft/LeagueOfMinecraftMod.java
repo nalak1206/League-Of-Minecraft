@@ -1,6 +1,9 @@
 package kr.leagueofminecraft;
 
 import kr.leagueofminecraft.champion.darius.DariusSkills;
+import kr.leagueofminecraft.champion.ChampionRegistry;
+import kr.leagueofminecraft.champion.darius.DariusChampion;
+import kr.leagueofminecraft.champion.yone.YoneChampion;
 import kr.leagueofminecraft.registry.ModItems;
 import net.fabricmc.api.ModInitializer;
 
@@ -9,6 +12,8 @@ public final class LeagueOfMinecraftMod implements ModInitializer {
     @Override
     public void onInitialize() {
         ModItems.initialize();
+        ChampionRegistry.register(new DariusChampion());
+        ChampionRegistry.register(new YoneChampion());
         DariusSkills.initialize();
     }
 }

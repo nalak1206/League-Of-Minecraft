@@ -1,5 +1,8 @@
 package kr.leagueofminecraft.champion.yone;
 
+import static kr.leagueofminecraft.champion.yone.YoneRuntimeState.*;
+import static kr.leagueofminecraft.champion.yone.YoneMotionService.*;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -74,19 +77,14 @@ public final class YoneSkills {
     private static final ResourceKey<DamageType> SOUL_UNBOUND_DAMAGE = ResourceKey.create(
             Registries.DAMAGE_TYPE, ModConstants.id("soul_unbound"));
 
-    private static final Map<UUID, long[]> LAST_CAST = new HashMap<>();
     private static final Map<UUID, QState> Q_STATES = new HashMap<>();
     private static final List<SmoothDash> Q_DASHES = new ArrayList<>();
     private static final Map<UUID, EState> E_STATES = new HashMap<>();
-    private static final Map<UUID, Boolean> E_RETURN_WARNED = new HashMap<>();
     private static final Map<UUID, ShieldVfx> SHIELD_VFX = new HashMap<>();
     private static final List<FateTrailVfx> FATE_TRAILS = new ArrayList<>();
     private static final List<SpiritTravel> SPIRIT_TRAVELS = new ArrayList<>();
-    private static final Map<UUID, Long> ACTION_LOCK_UNTIL = new HashMap<>();
     private static final Map<UUID, PositionLock> W_POSITION_LOCKS = new HashMap<>();
     private static final Map<UUID, PositionLock> Q_POSITION_LOCKS = new HashMap<>();
-    private static final Map<UUID, Long> Q_POSE_UNTIL = new HashMap<>();
-    private static final Map<UUID, Boolean> SECOND_BLADE = new HashMap<>();
     private static final List<PendingCast> PENDING_CASTS = new ArrayList<>();
     private static final List<UltEchoSound> ULT_ECHO_SOUNDS = new ArrayList<>();
 
@@ -99,6 +97,11 @@ public final class YoneSkills {
 
     public static boolean isYoneWeapon(ItemStack stack) {
         return stack.is(ModItems.YONE_STEEL_SWORD) || stack.is(ModItems.YONE_AZAKANA_SWORD);
+    }
+
+    public static void reduceUltimateCooldown(ServerPlayer player, long millis) {
+        long[] cast = LAST_CAST.get(player.getUUID());
+        if (cast != null && cast.length > 3 && cast[3] > 0) cast[3] = Math.max(1L, cast[3] - millis);
     }
 
     private static void installDualBlades(ServerPlayer player) {
@@ -682,40 +685,6 @@ public final class YoneSkills {
     private static float wBase(int rank) { return new float[]{1, 2, 3, 4, 5}[rank - 1]; }
     private static float wHealthRatio(int rank) { return 0.06f + (rank - 1) * 0.005f; }
     private static float rBase(int rank) { return new float[]{20, 40, 60}[rank - 1]; }
-
-    private static boolean isActionLocked(ServerPlayer player) {
-        return ACTION_LOCK_UNTIL.getOrDefault(player.getUUID(), 0L) > System.currentTimeMillis();
-    }
-
-    private static void lock(ServerPlayer player, long durationMs) {
-        ACTION_LOCK_UNTIL.merge(player.getUUID(), System.currentTimeMillis() + durationMs, Math::max);
-    }
-
-    private static Vec3 flatLook(ServerPlayer player) {
-        Vec3 look = player.getLookAngle().multiply(1, 0, 1);
-        return look.lengthSqr() < 0.001 ? null : look.normalize();
-    }
-
-    private static void dash(ServerPlayer player, Vec3 forward, double distance) {
-        Vec3 destination = player.position().add(forward.scale(distance));
-        teleportSafely(player, destination);
-    }
-
-    private static boolean advanceDash(ServerPlayer player, Vec3 forward, double distance) {
-        Vec3 destination = player.position().add(forward.scale(distance));
-        Vec3 delta = destination.subtract(player.position());
-        if (!player.level().noCollision(player, player.getBoundingBox().move(delta))) return false;
-        player.teleportTo(destination.x, destination.y, destination.z);
-        player.setDeltaMovement(Vec3.ZERO);
-        player.hurtMarked = true;
-        return true;
-    }
-
-    private static void teleportSafely(ServerPlayer player, Vec3 destination) {
-        Vec3 delta = destination.subtract(player.position());
-        if (player.level().noCollision(player, player.getBoundingBox().move(delta)))
-            player.teleportTo(destination.x, destination.y, destination.z);
-    }
 
     private static void playBladeSwing(ServerPlayer player, InteractionHand hand) {
         player.swing(hand, true);

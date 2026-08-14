@@ -3,6 +3,7 @@ package kr.leagueofminecraft.combat;
 import kr.leagueofminecraft.ModConstants;
 import kr.leagueofminecraft.shop.PlayerEconomy;
 import kr.leagueofminecraft.shop.LolShopItem;
+import kr.leagueofminecraft.shop.LegendaryItemEffects;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
@@ -34,7 +35,9 @@ public final class CombatEngine {
         float finalAmount = (float) (amplified * resistanceMultiplier(resistance));
         ResourceKey<DamageType> key = kind == DamageKind.PHYSICAL ? LOL_PHYSICAL : LOL_MAGIC;
         var type = attacker.level().registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(key);
-        return deal(attacker, target, new DamageSource(type, attacker, attacker), finalAmount, knockbackPolicy, true);
+        boolean damaged = deal(attacker, target, new DamageSource(type, attacker, attacker), finalAmount, knockbackPolicy, true);
+        if (damaged) LegendaryItemEffects.onChampionDamage(attacker, target, finalAmount, kind);
+        return damaged;
     }
 
     public static double resistanceAfterPenetration(ServerPlayer attacker, LivingEntity target, DamageKind kind) {

@@ -1,5 +1,8 @@
 package kr.leagueofminecraft.champion.darius;
 
+import static kr.leagueofminecraft.champion.darius.DariusRuntimeState.*;
+import static kr.leagueofminecraft.champion.darius.DariusVfx.*;
+
 import kr.leagueofminecraft.ModConstants;
 import kr.leagueofminecraft.champion.yone.YoneSkills;
 import kr.leagueofminecraft.core.ChampionManager;
@@ -73,23 +76,11 @@ public final class DariusSkills {
     private static final long[] COOLDOWNS_MS = {0, 5_000, 16_000, 100_000, 5_000};
     private static final float[] GUILLOTINE_MAX_HEALTH_RATIOS = {0.01f, 0.05f, 0.07f, 0.10f, 0.15f, 0.35f};
     private static final long[] CAST_TIMES_MS = {0, 750, 250, 180, 0};
-    private static final Map<UUID, long[]> LAST_CAST = new HashMap<>();
     private static final Map<UUID, BleedState> BLEEDS = new HashMap<>();
-    private static final Map<UUID, Long> NOXIAN_MIGHT = new HashMap<>();
-    private static final Map<UUID, Long> CRIPPLING_STRIKE = new HashMap<>();
     private static final List<PendingCast> PENDING_CASTS = new ArrayList<>();
     private static final List<GuillotineSlam> GUILLOTINE_SLAMS = new ArrayList<>();
-    private static final Map<UUID, LivingEntity> GUILLOTINE_TARGETS = new HashMap<>();
     private static final Map<UUID, GuillotineHeadCharge> GUILLOTINE_HEADS = new HashMap<>();
-    private static final Map<UUID, Long> R_RECAST_UNTIL = new HashMap<>();
-    private static final Map<UUID, Long> GUILLOTINE_ARMED = new HashMap<>();
-    private static final Map<UUID, Long> REVERT_TO_DIAMOND = new HashMap<>();
-    private static final Map<UUID, Item> LOCKED_WEAPON = new HashMap<>();
-    private static final Map<UUID, Long> APPREHEND_DISABLE_UNTIL = new HashMap<>();
     private static final Map<UUID, ArmorShredState> APPREHEND_ARMOR_SHRED_UNTIL = new HashMap<>();
-    private static final DustParticleOptions BLACK_DUST = new DustParticleOptions(0x08060C, 2.2f);
-    private static final DustParticleOptions PURPLE_DUST = new DustParticleOptions(0x4A126B, 2.0f);
-    private static final DustParticleOptions MAGENTA_DUST = new DustParticleOptions(0x96105F, 1.8f);
 
     public static void initialize() {
         PayloadTypeRegistry.serverboundPlay().register(SkillPayload.TYPE, SkillPayload.CODEC);
@@ -192,6 +183,11 @@ public final class DariusSkills {
     public static void castSelected(ServerPlayer player, int skill) { cast(player, skill); }
 
     public static void equip(ServerPlayer player) { selectOrCreateWeapon(player, NOXIAN_POWER); }
+
+    public static void reduceUltimateCooldown(ServerPlayer player, long millis) {
+        long[] cast = LAST_CAST.get(player.getUUID());
+        if (cast != null && cast.length > 3 && cast[3] > 0) cast[3] = Math.max(1L, cast[3] - millis);
+    }
 
     public static void reset(ServerPlayer player) {
         LAST_CAST.put(player.getUUID(), new long[5]);
@@ -633,106 +629,6 @@ public final class DariusSkills {
         visual.candles.forEach(Display.BlockDisplay::discard);
         visual.candles.clear();
         if (visual.egg != null) visual.egg.discard();
-    }
-
-    private static void maceShockwave(ServerLevel level, LivingEntity center, ServerPlayer attacker, boolean knockback) {
-        level.sendParticles(BLACK_DUST, center.getX(), center.getY() + 0.15, center.getZ(),
-                80, 2.1, 0.15, 2.1, 0.18);
-        level.sendParticles(PURPLE_DUST, center.getX(), center.getY() + 0.25, center.getZ(),
-                55, 1.8, 0.20, 1.8, 0.14);
-        if (!knockback) return;
-        for (LivingEntity nearby : level.getEntitiesOfClass(LivingEntity.class,
-                center.getBoundingBox().inflate(3.5), e -> e != center && e != attacker && e.isAlive())) {
-            Vec3 push = nearby.position().subtract(center.position()).multiply(1, 0, 1);
-            if (push.lengthSqr() < 0.01) push = new Vec3(0.1, 0, 0);
-            push = push.normalize().scale(1.15);
-            nearby.setDeltaMovement(push.x, 0.38, push.z);
-        }
-    }
-
-    private static void guillotineChargeVfx(ServerLevel level, ServerPlayer player, LivingEntity target) {
-        level.sendParticles(BLACK_DUST, target.getX(), target.getY() + 2.5, target.getZ(),
-                65, 1.8, 2.2, 1.8, 0.10);
-        level.sendParticles(PURPLE_DUST, target.getX(), target.getY() + 2.4, target.getZ(),
-                50, 1.6, 2.0, 1.6, 0.08);
-        level.sendParticles(MAGENTA_DUST, player.getX(), player.getY() + 0.8, player.getZ(),
-                45, 1.0, 1.4, 1.0, 0.09);
-    }
-
-    private static Display.ItemDisplay createDragonHeadDisplay(ServerLevel level, LivingEntity target, double y) {
-        Display.ItemDisplay head = new Display.ItemDisplay(net.minecraft.world.entity.EntityTypes.ITEM_DISPLAY, level);
-        ((ItemDisplayAccessor) head).darius$setItemStack(new ItemStack(Items.DRAGON_HEAD));
-        ((DisplayAccessor) head).darius$setTransformation(new Transformation(
-                new Vector3f(0, 0, 0), new Quaternionf(), new Vector3f(5.0f, 5.0f, 5.0f), new Quaternionf()));
-        head.setGlowingTag(true);
-        head.setPos(target.getX(), y, target.getZ());
-        level.addFreshEntity(head);
-        return head;
-    }
-
-    private static void faceDragonHead(Display.ItemDisplay head, Vec3 targetPosition) {
-        Vec3 direction = targetPosition.subtract(head.position());
-        double horizontal = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
-        float yaw = (float) (Math.atan2(direction.x, direction.z) + Math.PI);
-        float pitch = (float) Math.atan2(direction.y, horizontal);
-        Quaternionf rotation = new Quaternionf().rotateY(yaw).rotateX(pitch);
-        ((DisplayAccessor) head).darius$setTransformation(new Transformation(
-                new Vector3f(0, 0, 0), rotation,
-                new Vector3f(5.0f, 5.0f, 5.0f), new Quaternionf()));
-    }
-
-    private static void guillotineImpactVfx(ServerLevel level, LivingEntity target) {
-        double x = target.getX();
-        double y = target.getY();
-        double z = target.getZ();
-        level.sendParticles(BLACK_DUST, x, y + 1.0, z, 140, 2.8, 2.3, 2.8, 0.24);
-        level.sendParticles(PURPLE_DUST, x, y + 1.2, z, 105, 2.5, 2.1, 2.5, 0.20);
-        level.sendParticles(MAGENTA_DUST, x, y + 1.0, z, 75, 2.2, 2.0, 2.2, 0.16);
-
-        // Three enormous diagonal claw slashes, not a circle or magic glyph.
-        for (int claw = -1; claw <= 1; claw++) {
-            for (int i = -18; i <= 18; i++) {
-                double t = i / 7.0;
-                double px = x + t;
-                double py = y + 2.4 - t * 0.55 + claw * 0.48;
-                double pz = z + claw * 0.65;
-                level.sendParticles(PURPLE_DUST, px, py, pz, 3, 0.08, 0.08, 0.08, 0.025);
-                level.sendParticles(MAGENTA_DUST, px, py, pz, 2, 0.06, 0.06, 0.06, 0.018);
-            }
-        }
-
-        // Dense vertical darkness/energy column from the impact point into the sky.
-        for (int i = 0; i < 18; i++) {
-            double py = y + i * 0.32;
-            level.sendParticles(BLACK_DUST, x, py, z, 8, 0.55, 0.14, 0.55, 0.08);
-            level.sendParticles(PURPLE_DUST, x, py, z, 5, 0.42, 0.11, 0.42, 0.05);
-            level.sendParticles(MAGENTA_DUST, x, py, z, 3, 0.30, 0.08, 0.30, 0.03);
-        }
-    }
-
-    private static void clawMarks(ServerLevel level, LivingEntity target, int stacks) {
-        for (int claw = 0; claw < Math.min(3, stacks); claw++) {
-            for (int i = 0; i < 7; i++) {
-                double x = target.getX() - 0.35 + claw * 0.35 + i * 0.035;
-                double y = target.getY() + 1.75 - i * 0.12;
-                level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, x, y, target.getZ() + 0.45, 1, 0, 0, 0, 0);
-            }
-        }
-    }
-
-    private static void wolfSigil(ServerLevel level, LivingEntity target, double scale, boolean burst) {
-        double[][] points = {
-                {-0.70, 0.70}, {-0.45, 1.05}, {-0.20, 0.72}, {0.20, 0.72}, {0.45, 1.05}, {0.70, 0.70},
-                {-0.58, 0.35}, {-0.36, 0.05}, {-0.22, -0.35}, {0.0, -0.58}, {0.22, -0.35},
-                {0.36, 0.05}, {0.58, 0.35}, {-0.27, 0.28}, {0.27, 0.28}, {0.0, -0.08}
-        };
-        double z = target.getZ();
-        double baseY = target.getY() + target.getBbHeight() + 1.0;
-        for (double[] p : points) {
-            level.sendParticles(ParticleTypes.WITCH,
-                    target.getX() + p[0] * scale, baseY + p[1] * scale, z,
-                    burst ? 3 : 1, 0.03, 0.03, 0.03, 0.01);
-        }
     }
 
     private static void tickBleeds(MinecraftServer server) {

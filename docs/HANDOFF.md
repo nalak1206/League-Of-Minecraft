@@ -4,7 +4,7 @@
 
 ## 현재 기준
 
-- 버전: `0.12.2`
+- 버전: `0.13.0`
 - 브랜치: `main`
 - 원격: `https://github.com/nalak1206/League-Of-Minecraft.git`
 - 실행 환경: Minecraft 26.2 / Fabric Loader 0.19.3 / Fabric API 0.157.0+26.2 / Java 25
@@ -18,28 +18,23 @@
 - 레벨 1~18, 경험치, 스킬 포인트와 스킬 랭크
 - 골드, 처치 보상, MATCH 자연 골드, 저장 데이터
 - 8페이지 상점 GUI, 시작 아이템·장화·역할군별 전설 아이템
-- 6칸 가상 장비 인벤토리와 일부 고유 효과
+- 6칸 가상 장비 인벤토리와 전설 아이템 36종의 1차 고유 효과
 
 상점 전체 목록과 효과 구현 상태는 `docs/ITEMS.md`를 기준으로 합니다.
 
-## 0.12.2 구조 개편
+## 0.13.0 서비스 개편
 
-- Java 패키지를 `kr.leagueofminecraft`로 통일했습니다.
-- Fabric 진입점을 `LeagueOfMinecraftMod`로 분리했습니다.
-- 챔피언, 공통 코어, 전투, 상점, 네트워크, 레지스트리, 믹스인을 기능별 폴더로 이동했습니다.
-- 아이템 등록을 `registry/ModItems`로 모았습니다.
-- 식별자는 `ModConstants.id`로 생성합니다.
-- 예제 템플릿 코드와 `modid` 리소스를 제거했습니다.
-- 믹스인 설정 파일을 `league_of_minecraft.mixins.json`으로 변경했습니다.
-- 기존 저장·리소스 호환성을 위해 내부 ID `darius_skills`는 유지합니다.
+- `ChampionDefinition`과 `ChampionRegistry`가 챔피언 공통 생명주기를 담당합니다.
+- 다리우스는 상태와 VFX, 요네는 상태와 이동/잠금 서비스를 스킬 본체에서 분리했습니다.
+- 아이템 효과는 `CombatEngine`의 공통 챔피언 피해 훅으로 발동합니다.
+- 처치 시 원칙의 원형낫이 현재 챔피언의 궁극기 쿨타임을 공통 인터페이스로 환급합니다.
 
 ## 다음 작업
 
-1. `DariusSkills`의 입력 등록과 다리우스 전투 로직을 별도 bootstrap/service 클래스로 추가 분리
-2. `YoneSkills`의 E 상태·이동과 VFX 헬퍼 분리
-3. `ChampionDefinition` 인터페이스를 도입해 새 챔피언 등록을 데이터 중심으로 변경
-4. 상점 고유 효과 미구현 항목을 `ITEMS.md` 순서대로 연결
-5. 공통 전투 계산과 챔피언 전환에 대한 자동 테스트 추가
+1. 공통 전투 계산과 챔피언 전환에 대한 자동 테스트 추가
+2. 구원 위치 지정과 기사의 맹세 아군 지정 GUI 추가
+3. 다리우스 입력 bootstrap과 요네 VFX를 더 작은 서비스로 추가 분리
+4. 신규 챔피언을 `ChampionDefinition` 구현으로 등록
 
 ## 주의점
 
