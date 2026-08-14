@@ -15,11 +15,11 @@ src/
 │  │  └─ yone/                        # 요네 스킬·상태·이동 서비스
 │  ├─ core/                           # 챔피언 선택, 성장, CC, 매치, 저장
 │  ├─ combat/                         # 물리/마법 피해와 치명타 계산
-│  ├─ shop/                           # 상점 GUI, 경제, 아이템 효과
+│  ├─ shop/                           # 8페이지 상점, 3줄 LoL 인벤토리, 경제, 아이템 효과
 │  ├─ network/                        # 클라이언트-서버 페이로드
 │  └─ mixin/                          # 표시 엔티티와 아이템 보호 훅
 ├─ client/java/kr/leagueofminecraft/client/
-│  └─ LeagueOfMinecraftClient.java    # Z/X/C/V 입력과 클라이언트 애니메이션
+│  └─ LeagueOfMinecraftClient.java    # Z/X/C/V 스킬, P/M/B UI 입력과 애니메이션
 └─ main/resources/
    ├─ fabric.mod.json
    ├─ league_of_minecraft.mixins.json

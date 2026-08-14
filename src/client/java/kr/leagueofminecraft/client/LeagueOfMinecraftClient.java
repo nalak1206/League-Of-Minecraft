@@ -3,6 +3,7 @@ package kr.leagueofminecraft.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import kr.leagueofminecraft.ModConstants;
 import kr.leagueofminecraft.network.SkillPayload;
+import kr.leagueofminecraft.network.UiActionPayload;
 import kr.leagueofminecraft.network.YoneAttackAnimationPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -33,11 +34,17 @@ public final class LeagueOfMinecraftClient implements ClientModInitializer {
         KeyMapping w = key("key.darius_skills.w_keyboard", InputConstants.KEY_X);
         KeyMapping e = key("key.darius_skills.e_keyboard", InputConstants.KEY_C);
         KeyMapping r = key("key.darius_skills.r_keyboard", InputConstants.KEY_V);
+        KeyMapping shop = key("key.darius_skills.shop", InputConstants.KEY_P);
+        KeyMapping inventory = key("key.darius_skills.lol_inventory", InputConstants.KEY_M);
+        KeyMapping recall = key("key.darius_skills.recall", InputConstants.KEY_B);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (q.consumeClick()) send(1);
             while (w.consumeClick()) send(4);
             while (e.consumeClick()) send(2);
             while (r.consumeClick()) send(3);
+            while (shop.consumeClick()) sendUi(UiActionPayload.OPEN_SHOP);
+            while (inventory.consumeClick()) sendUi(UiActionPayload.OPEN_INVENTORY);
+            while (recall.consumeClick()) sendUi(UiActionPayload.RECALL);
         });
     }
 
@@ -47,5 +54,10 @@ public final class LeagueOfMinecraftClient implements ClientModInitializer {
 
     private static void send(int skill) {
         if (ClientPlayNetworking.canSend(SkillPayload.TYPE)) ClientPlayNetworking.send(new SkillPayload(skill));
+    }
+
+    private static void sendUi(int action) {
+        if (ClientPlayNetworking.canSend(UiActionPayload.TYPE))
+            ClientPlayNetworking.send(new UiActionPayload(action));
     }
 }

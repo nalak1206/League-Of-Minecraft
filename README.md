@@ -2,7 +2,7 @@
 
 Minecraft 26.2 Fabric에서 리그 오브 레전드식 챔피언 전투, 성장, 골드, 아이템 상점을 구현하는 모드입니다. 현재 플레이 가능한 챔피언은 다리우스와 요네이며 `Z/X/C/V`가 `Q/W/E/R`에 대응합니다.
 
-현재 버전: `0.13.0`
+현재 버전: `0.13.1`
 
 ## 빠른 시작
 
@@ -11,7 +11,7 @@ $env:JAVA_HOME='C:\path\to\jdk-25'
 .\gradlew.bat clean build
 ```
 
-생성 파일: `build/libs/league-of-minecraft-0.13.0.jar`
+생성 파일: `build/libs/league-of-minecraft-0.13.1.jar`
 
 주요 명령:
 

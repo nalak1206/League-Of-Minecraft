@@ -3,7 +3,10 @@
   "key.darius_skills.q_keyboard": "Skill 1",
   "key.darius_skills.w_keyboard": "Skill 2",
   "key.darius_skills.e_keyboard": "Skill 3",
-  "key.darius_skills.r_keyboard": "Skill 4"
+  "key.darius_skills.r_keyboard": "Skill 4",
+  "key.darius_skills.shop": "Open Shop",
+  "key.darius_skills.lol_inventory": "LoL Item Inventory",
+  "key.darius_skills.recall": "Recall (Coming Later)"
   ,"item.darius_skills.noxian_power": "Noxian Might"
   ,"item.darius_skills.crippling_strike": "Crippling Strike"
   ,"item.darius_skills.noxian_guillotine": "Noxian Guillotine"

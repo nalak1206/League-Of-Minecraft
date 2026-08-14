@@ -171,15 +171,15 @@ public final class LolShopMenu extends ChestMenu {
             case 6 -> vanillaItem("blue_stained_glass_pane");
             case 7 -> vanillaItem("lime_stained_glass_pane");
             case 1 -> vanillaItem("black_stained_glass_pane");
-            default -> vanillaItem("light_gray_stained_glass_pane");
+            default -> vanillaItem("white_stained_glass_pane");
         };
     }
 
-    private static Item vanillaItem(String path) {
+    static Item vanillaItem(String path) {
         return BuiltInRegistries.ITEM.getValue(Identifier.withDefaultNamespace(path));
     }
 
-    private static ItemStack skillIcon(ChampionProgression.Progress progress, int skill) {
+    static ItemStack skillIcon(ChampionProgression.Progress progress, int skill) {
         int rank = progress.rank(skill);
         int max = skill == 4 ? 3 : 5;
         Item icon = skillArmor(skill, rank);
@@ -188,24 +188,25 @@ public final class LolShopMenu extends ChestMenu {
     }
 
     private static Item skillArmor(int skill, int rank) {
+        if (rank == 0) return Items.BARRIER;
         if (skill == 4) return switch (rank) {
             case 1 -> Items.GOLDEN_BOOTS;
             case 2 -> Items.DIAMOND_BOOTS;
             case 3 -> Items.NETHERITE_BOOTS;
-            default -> Items.LEATHER_BOOTS;
+            default -> Items.BARRIER;
         };
         return switch (skill) {
             case 1 -> switch (rank) {
                 case 1 -> Items.COPPER_HELMET; case 2 -> Items.IRON_HELMET; case 3 -> Items.GOLDEN_HELMET;
-                case 4 -> Items.DIAMOND_HELMET; case 5 -> Items.NETHERITE_HELMET; default -> Items.LEATHER_HELMET;
+                case 4 -> Items.DIAMOND_HELMET; case 5 -> Items.NETHERITE_HELMET; default -> Items.BARRIER;
             };
             case 2 -> switch (rank) {
                 case 1 -> Items.COPPER_CHESTPLATE; case 2 -> Items.IRON_CHESTPLATE; case 3 -> Items.GOLDEN_CHESTPLATE;
-                case 4 -> Items.DIAMOND_CHESTPLATE; case 5 -> Items.NETHERITE_CHESTPLATE; default -> Items.LEATHER_CHESTPLATE;
+                case 4 -> Items.DIAMOND_CHESTPLATE; case 5 -> Items.NETHERITE_CHESTPLATE; default -> Items.BARRIER;
             };
             default -> switch (rank) {
                 case 1 -> Items.COPPER_LEGGINGS; case 2 -> Items.IRON_LEGGINGS; case 3 -> Items.GOLDEN_LEGGINGS;
-                case 4 -> Items.DIAMOND_LEGGINGS; case 5 -> Items.NETHERITE_LEGGINGS; default -> Items.LEATHER_LEGGINGS;
+                case 4 -> Items.DIAMOND_LEGGINGS; case 5 -> Items.NETHERITE_LEGGINGS; default -> Items.BARRIER;
             };
         };
     }
@@ -221,7 +222,7 @@ public final class LolShopMenu extends ChestMenu {
         };
     }
 
-    private static ItemStack named(Item item, String name) {
+    static ItemStack named(Item item, String name) {
         ItemStack stack = new ItemStack(item);
         stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
         return stack;
