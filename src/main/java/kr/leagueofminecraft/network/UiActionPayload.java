@@ -11,6 +11,8 @@ public record UiActionPayload(int action) implements CustomPacketPayload {
     public static final int OPEN_SHOP = 1;
     public static final int OPEN_INVENTORY = 2;
     public static final int RECALL = 3;
+    public static final int USE_ITEM_BASE = 10;
+    public static final int USE_TRINKET = 20;
 
     public static final Type<UiActionPayload> TYPE = new Type<>(ModConstants.id("ui_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, UiActionPayload> CODEC = StreamCodec.composite(

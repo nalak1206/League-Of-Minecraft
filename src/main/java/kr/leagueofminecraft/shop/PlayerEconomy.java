@@ -5,6 +5,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 import kr.leagueofminecraft.core.ChampionManager;
 import kr.leagueofminecraft.core.ChampionProgression;
@@ -159,10 +160,31 @@ public final class PlayerEconomy {
         return account(player).items.contains(item);
     }
 
+    /** Stable virtual inventory order shared by the M GUI and Alt item keys. */
+    public static List<LolShopItem> equipment(ServerPlayer player) {
+        return account(player).items.stream().sorted(java.util.Comparator.comparingInt(Enum::ordinal)).toList();
+    }
+
+    public static LolShopItem equipmentAt(ServerPlayer player, int slot) {
+        List<LolShopItem> items = equipment(player);
+        return slot >= 0 && slot < items.size() ? items.get(slot) : null;
+    }
+
+    public static LolTrinket trinket(ServerPlayer player) { return account(player).trinket; }
+
+    public static LolTrinket cycleTrinket(ServerPlayer player) {
+        Account account = account(player);
+        account.trinket = account.trinket == LolTrinket.STEALTH_WARD
+                ? LolTrinket.ORACLE_LENS : LolTrinket.STEALTH_WARD;
+        LolPlayerDataStore.save(player.level().getServer());
+        return account.trinket;
+    }
+
     public static Set<UUID> playerIds() { return Set.copyOf(ACCOUNTS.keySet()); }
     public static AccountSnapshot snapshot(UUID id) {
         Account account = ACCOUNTS.getOrDefault(id, new Account());
-        return new AccountSnapshot(account.gold, account.items.stream().map(Enum::name).toArray(String[]::new));
+        return new AccountSnapshot(account.gold, account.items.stream().map(Enum::name).toArray(String[]::new),
+                account.trinket.name());
     }
     public static void load(UUID id, AccountSnapshot snapshot) {
         Account account = new Account();
@@ -170,6 +192,8 @@ public final class PlayerEconomy {
         if (snapshot.items() != null) for (String item : snapshot.items()) {
             try { account.items.add(LolShopItem.valueOf(item)); } catch (IllegalArgumentException ignored) { }
         }
+        try { account.trinket = LolTrinket.valueOf(snapshot.trinket()); }
+        catch (IllegalArgumentException | NullPointerException ignored) { }
         ACCOUNTS.put(id, account);
     }
     public static void clear() { ACCOUNTS.clear(); }
@@ -180,9 +204,10 @@ public final class PlayerEconomy {
     public static final class Account {
         private int gold = 500;
         private final EnumSet<LolShopItem> items = EnumSet.noneOf(LolShopItem.class);
+        private LolTrinket trinket = LolTrinket.STEALTH_WARD;
         public int gold() { return gold; }
         public boolean owns(LolShopItem item) { return items.contains(item); }
         public Set<LolShopItem> items() { return Set.copyOf(items); }
     }
-    public record AccountSnapshot(int gold, String[] items) {}
+    public record AccountSnapshot(int gold, String[] items, String trinket) {}
 }

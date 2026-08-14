@@ -1,6 +1,5 @@
 package kr.leagueofminecraft.shop;
 
-import java.util.Comparator;
 import java.util.List;
 import kr.leagueofminecraft.core.ChampionProgression;
 import net.minecraft.core.component.DataComponents;
@@ -44,11 +43,13 @@ public final class LolInventoryMenu extends ChestMenu {
                         + (needed == 0 ? " §6MAX" : "/" + needed)));
         for (int skill = 1; skill <= 4; skill++)
             display.setItem(SKILL_SLOTS[skill - 1], LolShopMenu.skillIcon(progress, skill));
+        LolTrinket trinket = PlayerEconomy.trinket(owner);
+        display.setItem(4, LolShopMenu.named(trinket.icon(),
+                "§a§l장신구 §f" + trinket.displayName() + " §7(클릭 전환 / Alt+4 사용)"));
         display.setItem(7, LolShopMenu.named(Items.GOLD_INGOT,
                 "§6§lGOLD " + PlayerEconomy.account(owner).gold() + "G"));
 
-        List<LolShopItem> equipment = PlayerEconomy.account(owner).items().stream()
-                .sorted(Comparator.comparingInt(Enum::ordinal)).toList();
+        List<LolShopItem> equipment = PlayerEconomy.equipment(owner);
         for (int index = 0; index < EQUIPMENT_SLOTS.length; index++) {
             if (index >= equipment.size()) {
                 display.setItem(EQUIPMENT_SLOTS[index],
@@ -65,6 +66,11 @@ public final class LolInventoryMenu extends ChestMenu {
     }
 
     @Override public void clicked(int slotIndex, int buttonNum, ContainerInput input, Player player) {
+        if (slotIndex == 4) {
+            PlayerEconomy.cycleTrinket(owner);
+            refresh();
+            return;
+        }
         if (slotIndex >= 0 && slotIndex < 27) return;
         super.clicked(slotIndex, buttonNum, input, player);
     }

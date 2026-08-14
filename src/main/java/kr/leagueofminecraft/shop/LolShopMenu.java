@@ -1,6 +1,5 @@
 package kr.leagueofminecraft.shop;
 
-import java.util.Comparator;
 import java.util.List;
 import kr.leagueofminecraft.core.ChampionProgression;
 import net.minecraft.core.component.DataComponents;
@@ -152,8 +151,7 @@ public final class LolShopMenu extends ChestMenu {
     }
 
     private List<LolShopItem> equipment() {
-        return PlayerEconomy.account(customer).items().stream()
-                .sorted(Comparator.comparingInt(Enum::ordinal)).toList();
+        return PlayerEconomy.equipment(customer);
     }
 
     private static int[] productSlots(int page) {

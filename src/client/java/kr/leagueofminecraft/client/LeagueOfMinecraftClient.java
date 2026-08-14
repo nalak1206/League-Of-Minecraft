@@ -14,6 +14,12 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
 
 public final class LeagueOfMinecraftClient implements ClientModInitializer {
+    private static final int[] ALT_ITEM_KEYS = {
+            InputConstants.KEY_1, InputConstants.KEY_2, InputConstants.KEY_3,
+            InputConstants.KEY_4, InputConstants.KEY_5, InputConstants.KEY_6,
+            InputConstants.KEY_7
+    };
+    private static final boolean[] ALT_ITEM_DOWN = new boolean[ALT_ITEM_KEYS.length];
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             ModConstants.id("skills"));
     @Override
@@ -45,6 +51,7 @@ public final class LeagueOfMinecraftClient implements ClientModInitializer {
             while (shop.consumeClick()) sendUi(UiActionPayload.OPEN_SHOP);
             while (inventory.consumeClick()) sendUi(UiActionPayload.OPEN_INVENTORY);
             while (recall.consumeClick()) sendUi(UiActionPayload.RECALL);
+            handleAltItemKeys(client);
         });
     }
 
@@ -59,5 +66,23 @@ public final class LeagueOfMinecraftClient implements ClientModInitializer {
     private static void sendUi(int action) {
         if (ClientPlayNetworking.canSend(UiActionPayload.TYPE))
             ClientPlayNetworking.send(new UiActionPayload(action));
+    }
+
+    private static void handleAltItemKeys(net.minecraft.client.Minecraft client) {
+        boolean alt = InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_LALT)
+                || InputConstants.isKeyDown(client.getWindow(), InputConstants.KEY_RALT);
+        for (int index = 0; index < ALT_ITEM_KEYS.length; index++) {
+            boolean down = alt && InputConstants.isKeyDown(client.getWindow(), ALT_ITEM_KEYS[index]);
+            if (down && !ALT_ITEM_DOWN[index] && client.player != null
+                    && client.player.containerMenu == client.player.inventoryMenu) {
+                int number = index + 1;
+                int action = number == 4
+                        ? UiActionPayload.USE_TRINKET
+                        : UiActionPayload.USE_ITEM_BASE + (number < 4 ? number - 1 : number - 2);
+                sendUi(action);
+                client.player.getInventory().setSelectedSlot(0);
+            }
+            ALT_ITEM_DOWN[index] = down;
+        }
     }
 }

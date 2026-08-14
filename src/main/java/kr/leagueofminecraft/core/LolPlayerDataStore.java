@@ -56,6 +56,7 @@ public final class LolPlayerDataStore {
             PlayerEconomy.AccountSnapshot economy = PlayerEconomy.snapshot(playerId);
             data.addProperty("gold", economy.gold());
             data.add("items", GSON.toJsonTree(economy.items()));
+            data.addProperty("trinket", economy.trinket());
             root.add(playerId.toString(), data);
         }
         try {
@@ -84,7 +85,8 @@ public final class LolPlayerDataStore {
                 ChampionProgression.load(playerId, new ChampionProgression.ProgressSnapshot(
                         integer(data, "level", 1), integer(data, "xp", 0), integer(data, "skillPoints", 1), ranks));
                 String[] items = data.has("items") ? GSON.fromJson(data.get("items"), String[].class) : new String[0];
-                PlayerEconomy.load(playerId, new PlayerEconomy.AccountSnapshot(integer(data, "gold", 500), items));
+                PlayerEconomy.load(playerId, new PlayerEconomy.AccountSnapshot(integer(data, "gold", 500), items,
+                        data.has("trinket") ? data.get("trinket").getAsString() : "STEALTH_WARD"));
             }
         } catch (Exception ignored) {
             ChampionManager.clear();

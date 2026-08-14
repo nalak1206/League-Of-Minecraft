@@ -53,10 +53,34 @@ public final class LegendaryItemEffects {
     private LegendaryItemEffects() {}
 
     public static String useActive(ServerPlayer player) {
+        for (LolShopItem item : PlayerEconomy.equipment(player)) {
+            if (isActiveItem(item)) return useActive(player, item);
+        }
+        return "사용할 수 있는 액티브 아이템이 없습니다";
+    }
+
+    /** Uses the item bound to one of the six virtual LoL equipment slots. */
+    public static String useActive(ServerPlayer player, int slot) {
+        LolShopItem item = PlayerEconomy.equipmentAt(player, slot);
+        if (item == null) return (slot + 1) + "번 아이템 칸이 비어 있습니다";
+        if (!isActiveItem(item)) return item.displayName() + ": 사용 효과가 없는 아이템입니다";
+        return useActive(player, item);
+    }
+
+    private static boolean isActiveItem(LolShopItem item) {
+        return item == LolShopItem.ZHONYAS_HOURGLASS
+                || item == LolShopItem.YOUMUUS_GHOSTBLADE
+                || item == LolShopItem.PROFANE_HYDRA
+                || item == LolShopItem.LOCKET_OF_THE_IRON_SOLARI
+                || item == LolShopItem.SHURELYAS_BATTLESONG
+                || item == LolShopItem.REDEMPTION;
+    }
+
+    private static String useActive(ServerPlayer player, LolShopItem item) {
         long now = System.currentTimeMillis();
         long readyAt = ACTIVE_COOLDOWN.getOrDefault(player.getUUID(), 0L);
         if (readyAt > now) return String.format(java.util.Locale.ROOT, "재사용 %.1f초", (readyAt - now) / 1000.0);
-        if (PlayerEconomy.owns(player, LolShopItem.ZHONYAS_HOURGLASS)) {
+        if (item == LolShopItem.ZHONYAS_HOURGLASS) {
             ZHONYA_UNTIL.put(player.getUUID(), now + 2_500);
             player.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 50, 255, false, false));
             player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 50, 255, false, false));
@@ -64,12 +88,12 @@ public final class LegendaryItemEffects {
             player.level().playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8f, 0.7f);
             return "존야의 모래시계: 경직 2.5초";
         }
-        if (PlayerEconomy.owns(player, LolShopItem.YOUMUUS_GHOSTBLADE)) {
+        if (item == LolShopItem.YOUMUUS_GHOSTBLADE) {
             player.addEffect(new MobEffectInstance(MobEffects.SPEED, 120, 2, false, false));
             ACTIVE_COOLDOWN.put(player.getUUID(), now + 45_000);
             return "요우무의 유령검: 이동 속도 증가";
         }
-        if (PlayerEconomy.owns(player, LolShopItem.PROFANE_HYDRA)) {
+        if (item == LolShopItem.PROFANE_HYDRA) {
             List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class,
                     player.getBoundingBox().inflate(4.0), target -> target != player && target.isAlive());
             for (LivingEntity target : targets) {
@@ -79,7 +103,7 @@ public final class LegendaryItemEffects {
             ACTIVE_COOLDOWN.put(player.getUUID(), now + 10_000);
             return "불경한 히드라: 광역 참격";
         }
-        if (PlayerEconomy.owns(player, LolShopItem.LOCKET_OF_THE_IRON_SOLARI)) {
+        if (item == LolShopItem.LOCKET_OF_THE_IRON_SOLARI) {
             for (ServerPlayer ally : player.level().getEntitiesOfClass(ServerPlayer.class,
                     player.getBoundingBox().inflate(8.0), LivingEntity::isAlive)) {
                 ally.setAbsorptionAmount(Math.max(ally.getAbsorptionAmount(), 5.0f));
@@ -88,14 +112,14 @@ public final class LegendaryItemEffects {
             ACTIVE_COOLDOWN.put(player.getUUID(), now + 90_000);
             return "강철의 솔라리 펜던트: 광역 보호막";
         }
-        if (PlayerEconomy.owns(player, LolShopItem.SHURELYAS_BATTLESONG)) {
+        if (item == LolShopItem.SHURELYAS_BATTLESONG) {
             for (ServerPlayer ally : player.level().getEntitiesOfClass(ServerPlayer.class,
                     player.getBoundingBox().inflate(8.0), LivingEntity::isAlive))
                 ally.addEffect(new MobEffectInstance(MobEffects.SPEED, 80, 2, false, false));
             ACTIVE_COOLDOWN.put(player.getUUID(), now + 75_000);
             return "슈렐리아의 군가: 광역 이동 속도 증가";
         }
-        if (PlayerEconomy.owns(player, LolShopItem.REDEMPTION)) {
+        if (item == LolShopItem.REDEMPTION) {
             player.heal((float) (6.0 * (1.0 + PlayerEconomy.healAndShieldPower(player))));
             applyArdentBuff(player, player);
             for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class,
