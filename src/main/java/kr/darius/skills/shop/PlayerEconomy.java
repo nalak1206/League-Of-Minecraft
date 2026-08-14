@@ -32,15 +32,15 @@ public final class PlayerEconomy {
         if (account.items.contains(item)) return PurchaseResult.OWNED;
         if (item.category() == LolShopItem.Category.STARTER && account.items.stream().anyMatch(owned -> owned.category() == LolShopItem.Category.STARTER))
             return PurchaseResult.STARTER_LOCKED;
+        LolShopItem ownedBoots = account.items.stream()
+                .filter(owned -> owned.category() == LolShopItem.Category.BOOTS).findFirst().orElse(null);
         int price = item.price();
-        if (item.isFinishedBoots() && account.items.contains(LolShopItem.BOOTS)) price -= LolShopItem.BOOTS.price();
-        if (item.category() == LolShopItem.Category.BOOTS && account.items.stream().anyMatch(LolShopItem::isFinishedBoots))
-            return PurchaseResult.BOOTS_LOCKED;
-        boolean upgradesBoots = item.isFinishedBoots() && account.items.contains(LolShopItem.BOOTS);
-        if (!upgradesBoots && account.items.size() >= 6) return PurchaseResult.INVENTORY_FULL;
+        boolean replacesBoots = item.category() == LolShopItem.Category.BOOTS && ownedBoots != null;
+        if (replacesBoots) price = Math.max(0, item.price() - ownedBoots.price());
+        if (!replacesBoots && account.items.size() >= 6) return PurchaseResult.INVENTORY_FULL;
         if (account.gold < price) return PurchaseResult.NOT_ENOUGH_GOLD;
         account.gold -= price;
-        if (item.isFinishedBoots()) account.items.remove(LolShopItem.BOOTS);
+        if (replacesBoots) account.items.remove(ownedBoots);
         account.items.add(item);
         applyAttributes(player);
         LolPlayerDataStore.save(player.level().getServer());

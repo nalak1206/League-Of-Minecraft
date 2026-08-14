@@ -215,6 +215,7 @@ public final class DariusSkills implements ModInitializer {
         GUILLOTINE_ARMED.remove(player.getUUID());
         R_RECAST_UNTIL.remove(player.getUUID());
         REVERT_TO_DIAMOND.remove(player.getUUID());
+        LOCKED_WEAPON.remove(player.getUUID());
         player.setNoGravity(false);
     }
 

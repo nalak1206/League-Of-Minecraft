@@ -21,12 +21,21 @@ public enum LolShopItem {
     TEAR("여신의 눈물", Category.STARTER, 400, Items.PRISMARINE_CRYSTALS, 0, 0, 0, 0, 0, 0),
 
     BOOTS("장화", Category.BOOTS, 300, Items.LEATHER_BOOTS, 0, 0, 0, 0, 0, 0.08),
+    SLIGHTLY_MAGICAL_BOOTS("약간 신비한 신발", Category.BOOTS, 300, Items.AMETHYST_SHARD, 0, 0, 0, 0, 0, 0.10),
     BERSERKERS("광전사의 군화", Category.BOOTS, 1100, Items.GOLDEN_BOOTS, 0, 0, 0, 0.30, 0, 0.14),
     SORCERERS("마법사의 신발", Category.BOOTS, 1100, Items.CHAINMAIL_BOOTS, 0, 0, 0, 0, 0, 0.14),
     IONIAN("명석함의 아이오니아 장화", Category.BOOTS, 900, Items.IRON_BOOTS, 0, 0, 0, 0, 0, 0.14),
     SWIFTNESS("신속의 장화", Category.BOOTS, 1000, Items.RABBIT_FOOT, 0, 0, 0, 0, 0, 0.18),
     PLATED("판금 장화", Category.BOOTS, 1200, Items.NETHERITE_BOOTS, 0, 0, 0, 0, 2.5, 0.14),
     MERCURYS("헤르메스의 발걸음", Category.BOOTS, 1250, Items.DIAMOND_BOOTS, 0, 0, 0, 0, 0, 0.14),
+    ARMORED_ADVANCE("무장 진격", Category.BOOTS, 1500, Items.NETHERITE_BOOTS, 0, 0, 0, 0, 4.0, 0.16),
+    GUNMETAL_GREAVES("건메탈 군화", Category.BOOTS, 1500, Items.IRON_BOOTS, 0, 0, 0, 0.45, 0, 0.16),
+    SWIFTMARCH("신속행진", Category.BOOTS, 1500, Items.RABBIT_FOOT, 0, 0, 0, 0, 0, 0.23),
+    SPELLSLINGERS_SHOES("주문투척자의 신발", Category.BOOTS, 1500, Items.AMETHYST_SHARD, 0, 0, 25, 0, 0, 0.16),
+    CHAINLACED_CRUSHERS("사슬꾼 분쇄자", Category.BOOTS, 1500, Items.CHAINMAIL_BOOTS, 0, 0, 0, 0, 0, 0.16),
+    CRIMSON_LUCIDITY("핏빛 명석함", Category.BOOTS, 1500, Items.REDSTONE, 0, 0, 0, 0, 0, 0.16),
+    GREEDY_GREAVES("탐욕의 군화", Category.BOOTS, 1500, Items.GOLD_INGOT, 1.5, 0, 0, 0.20, 0, 0.16),
+    FOREVER_FORWARD("불멸의 길", Category.BOOTS, 1500, Items.TOTEM_OF_UNDYING, 0, 4.0, 0, 0, 0, 0.16),
 
     TRINITY_FORCE("삼위일체", Category.FIGHTER, 3333, Items.MUSIC_DISC_13, 3.6, 6.66, 0, 0.30, 0, 0),
     BLACK_CLEAVER("칠흑의 양날 도끼", Category.FIGHTER, 3000, Items.NETHERITE_AXE, 4.5, 8.0, 0, 0, 0, 0),
@@ -130,7 +139,7 @@ public enum LolShopItem {
     /** Values below use League's display scale (for example 18 means 18 lethality). */
     public double magicResistance() {
         return switch (this) {
-            case MERCURYS, LOCKET_OF_THE_IRON_SOLARI -> 25;
+            case MERCURYS, CHAINLACED_CRUSHERS, LOCKET_OF_THE_IRON_SOLARI -> 25;
             case KAENIC_ROOKERN -> 80;
             case JAKSHO -> 50;
             default -> 0;
@@ -139,6 +148,7 @@ public enum LolShopItem {
     public double abilityHaste() {
         return switch (this) {
             case IONIAN -> 15;
+            case CRIMSON_LUCIDITY -> 25;
             case BLACK_CLEAVER, AXIOM_ARC, LIANDRYS_TORMENT, REDEMPTION, SHURELYAS_BATTLESONG -> 20;
             case SUNDERED_SKY, DEATHS_DANCE, SERYLDAS_GRUDGE, PROFANE_HYDRA,
                     ZHONYAS_HOURGLASS, RYLAIS_CRYSTAL_SCEPTER, SUNFIRE_AEGIS,
@@ -167,6 +177,7 @@ public enum LolShopItem {
     public double magicPenetrationFlat() {
         return switch (this) {
             case SORCERERS -> 12;
+            case SPELLSLINGERS_SHOES -> 18;
             case SHADOWFLAME -> 15;
             default -> 0;
         };
@@ -191,7 +202,7 @@ public enum LolShopItem {
     }
     public double tenacity() {
         return switch (this) {
-            case MERCURYS -> 0.30;
+            case MERCURYS, CHAINLACED_CRUSHERS -> 0.30;
             case STERAKS_GAGE -> 0.20;
             default -> 0;
         };
@@ -220,5 +231,5 @@ public enum LolShopItem {
         text.append(value == Math.rint(value) ? Integer.toString((int) value) : String.format(java.util.Locale.ROOT, "%.1f", value))
                 .append(label);
     }
-    public boolean isFinishedBoots() { return category == Category.BOOTS && this != BOOTS; }
+    public boolean isFinishedBoots() { return category == Category.BOOTS && this != BOOTS && this != SLIGHTLY_MAGICAL_BOOTS; }
 }

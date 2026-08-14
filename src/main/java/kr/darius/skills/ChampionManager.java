@@ -10,6 +10,8 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 import kr.darius.skills.shop.LolShop;
 import kr.darius.skills.shop.PlayerEconomy;
 import kr.darius.skills.shop.LegendaryItemEffects;
@@ -146,6 +148,7 @@ public final class ChampionManager {
     public static void select(ServerPlayer player, Champion champion) {
         DariusSkills.reset(player);
         YoneSkills.reset(player);
+        clearChampionWeapons(player);
         CHAMPIONS.put(player.getUUID(), champion);
         if (champion == Champion.DARIUS) DariusSkills.equip(player);
         else YoneSkills.equip(player);
@@ -176,11 +179,22 @@ public final class ChampionManager {
     }
 
     static void onJoin(ServerPlayer player) {
+        clearChampionWeapons(player);
         if (isDarius(player)) DariusSkills.equip(player);
         else YoneSkills.equip(player);
         PlayerEconomy.applyAttributes(player);
     }
 
+    private static void clearChampionWeapons(ServerPlayer player) {
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (DariusSkills.isDariusWeapon(stack) || YoneSkills.isYoneWeapon(stack))
+                player.getInventory().setItem(slot, ItemStack.EMPTY);
+        }
+        ItemStack offhand = player.getOffhandItem();
+        if (DariusSkills.isDariusWeapon(offhand) || YoneSkills.isYoneWeapon(offhand))
+            player.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+    }
     private static int parseSkill(String value) {
         return switch (value.toLowerCase(Locale.ROOT)) {
             case "1", "q" -> 1;

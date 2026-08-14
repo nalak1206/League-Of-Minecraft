@@ -21,6 +21,11 @@ public final class ChampionProgression {
         return DATA.computeIfAbsent(player.getUUID(), id -> new Progress());
     }
 
+    public static int xpToNext(ServerPlayer player) {
+        Progress progress = get(player);
+        return progress.level >= MAX_LEVEL ? 0 : XP_TO_NEXT[progress.level];
+    }
+
     public static void addXp(ServerPlayer player, int amount) {
         Progress progress = get(player);
         progress.xp += Math.max(0, amount);
