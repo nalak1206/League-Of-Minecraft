@@ -6,12 +6,13 @@
   "description": "A Fabric League-inspired combat framework with playable Darius and Yone.",
   "authors": ["Codex"],
   "license": "CC0-1.0",
+  "icon": "assets/darius_skills/icon.png",
   "environment": "*",
   "entrypoints": {
-    "main": ["kr.darius.skills.DariusSkills"],
-    "client": ["kr.darius.skills.client.DariusSkillsClient"]
+    "main": ["kr.leagueofminecraft.LeagueOfMinecraftMod"],
+    "client": ["kr.leagueofminecraft.client.LeagueOfMinecraftClient"]
   },
-  "mixins": ["darius_skills.mixins.json"],
+  "mixins": ["league_of_minecraft.mixins.json"],
   "depends": {
     "fabricloader": ">=0.19.3",
     "minecraft": "~26.2",

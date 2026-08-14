@@ -10,4 +10,4 @@ pluginManagement {
 }
 
 // Should match your modid
-rootProject.name = 'darius-skills'
+rootProject.name = 'league-of-minecraft'
