@@ -44,19 +44,19 @@ public final class CombatEngine {
         if (kind == DamageKind.PHYSICAL) {
             // Item armor is stored at Minecraft's 1:10 combat scale.
             double armor = target.getAttributeValue(Attributes.ARMOR) * 10.0;
-            return armor * (1.0 - PlayerEconomy.armorPenetrationPercent(attacker))
-                    - PlayerEconomy.armorPenetrationFlat(attacker);
+            return CombatMath.resistanceAfterPenetration(armor,
+                    PlayerEconomy.armorPenetrationPercent(attacker),
+                    PlayerEconomy.armorPenetrationFlat(attacker));
         }
         double magicResistance = target instanceof ServerPlayer player
                 ? PlayerEconomy.magicResistance(player) : 0.0;
-        return magicResistance * (1.0 - PlayerEconomy.magicPenetrationPercent(attacker))
-                - PlayerEconomy.magicPenetrationFlat(attacker);
+        return CombatMath.resistanceAfterPenetration(magicResistance,
+                PlayerEconomy.magicPenetrationPercent(attacker),
+                PlayerEconomy.magicPenetrationFlat(attacker));
     }
 
     public static double resistanceMultiplier(double resistance) {
-        return resistance >= 0.0
-                ? 100.0 / (100.0 + resistance)
-                : 2.0 - 100.0 / (100.0 - resistance);
+        return CombatMath.resistanceMultiplier(resistance);
     }
 
     public static boolean deal(ServerPlayer attacker, LivingEntity target, DamageSource source, float amount,

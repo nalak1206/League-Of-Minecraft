@@ -10,6 +10,7 @@ import java.util.UUID;
 import kr.leagueofminecraft.core.ChampionManager;
 import kr.leagueofminecraft.core.ChampionProgression;
 import kr.leagueofminecraft.core.LolPlayerDataStore;
+import kr.leagueofminecraft.combat.CombatMath;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -135,7 +136,7 @@ public final class PlayerEconomy {
     public static double tenacity(ServerPlayer player) { return Math.min(0.60, sum(player, LolShopItem::tenacity)); }
     public static double healAndShieldPower(ServerPlayer player) { return sum(player, LolShopItem::healAndShieldPower); }
     public static long cooldownMillis(ServerPlayer player, long baseMillis) {
-        return Math.max(1L, Math.round(baseMillis * 100.0 / (100.0 + abilityHaste(player))));
+        return CombatMath.cooldownMillis(baseMillis, abilityHaste(player));
     }
 
     public static void tickRegen(ServerPlayer player, long serverTicks) {

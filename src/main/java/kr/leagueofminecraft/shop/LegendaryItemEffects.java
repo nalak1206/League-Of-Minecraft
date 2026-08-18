@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 import kr.leagueofminecraft.core.ChampionManager;
+import kr.leagueofminecraft.core.PerPlayerCooldowns;
 import kr.leagueofminecraft.combat.CombatEngine;
 import kr.leagueofminecraft.combat.CriticalStrikeEngine;
 import net.minecraft.core.particles.ParticleTypes;
@@ -36,7 +37,7 @@ public final class LegendaryItemEffects {
     private static final Map<UUID, Integer> KRAKEN_HITS = new HashMap<>();
     private static final Map<UUID, Integer> STATIKK_CHARGE = new HashMap<>();
     private static final Map<UUID, Long> HEARTSTEEL_TARGET_COOLDOWN = new HashMap<>();
-    private static final Map<UUID, Long> ACTIVE_COOLDOWN = new HashMap<>();
+    private static final PerPlayerCooldowns<LolShopItem> ACTIVE_COOLDOWNS = new PerPlayerCooldowns<>();
     private static final Map<UUID, Long> ZHONYA_UNTIL = new HashMap<>();
     private static final Map<UUID, Long> LAST_COMBAT = new HashMap<>();
     private static final Map<UUID, Long> COMBAT_STARTED = new HashMap<>();
@@ -78,19 +79,20 @@ public final class LegendaryItemEffects {
 
     private static String useActive(ServerPlayer player, LolShopItem item) {
         long now = System.currentTimeMillis();
-        long readyAt = ACTIVE_COOLDOWN.getOrDefault(player.getUUID(), 0L);
-        if (readyAt > now) return String.format(java.util.Locale.ROOT, "재사용 %.1f초", (readyAt - now) / 1000.0);
+        long remaining = ACTIVE_COOLDOWNS.remainingMillis(player.getUUID(), item, now);
+        if (remaining > 0) return String.format(java.util.Locale.ROOT, "%s 재사용 %.1f초",
+                item.displayName(), remaining / 1000.0);
         if (item == LolShopItem.ZHONYAS_HOURGLASS) {
             ZHONYA_UNTIL.put(player.getUUID(), now + 2_500);
             player.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 50, 255, false, false));
             player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 50, 255, false, false));
-            ACTIVE_COOLDOWN.put(player.getUUID(), now + 120_000);
+            ACTIVE_COOLDOWNS.start(player.getUUID(), item, now, 120_000);
             player.level().playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8f, 0.7f);
             return "존야의 모래시계: 경직 2.5초";
         }
         if (item == LolShopItem.YOUMUUS_GHOSTBLADE) {
             player.addEffect(new MobEffectInstance(MobEffects.SPEED, 120, 2, false, false));
-            ACTIVE_COOLDOWN.put(player.getUUID(), now + 45_000);
+            ACTIVE_COOLDOWNS.start(player.getUUID(), item, now, 45_000);
             return "요우무의 유령검: 이동 속도 증가";
         }
         if (item == LolShopItem.PROFANE_HYDRA) {
@@ -100,7 +102,7 @@ public final class LegendaryItemEffects {
                 float missing = 1.0f - target.getHealth() / target.getMaxHealth();
                 extraPhysical(player, target, (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.8f + missing * 0.8f));
             }
-            ACTIVE_COOLDOWN.put(player.getUUID(), now + 10_000);
+            ACTIVE_COOLDOWNS.start(player.getUUID(), item, now, 10_000);
             return "불경한 히드라: 광역 참격";
         }
         if (item == LolShopItem.LOCKET_OF_THE_IRON_SOLARI) {
@@ -109,14 +111,14 @@ public final class LegendaryItemEffects {
                 ally.setAbsorptionAmount(Math.max(ally.getAbsorptionAmount(), 5.0f));
                 applyArdentBuff(player, ally);
             }
-            ACTIVE_COOLDOWN.put(player.getUUID(), now + 90_000);
+            ACTIVE_COOLDOWNS.start(player.getUUID(), item, now, 90_000);
             return "강철의 솔라리 펜던트: 광역 보호막";
         }
         if (item == LolShopItem.SHURELYAS_BATTLESONG) {
             for (ServerPlayer ally : player.level().getEntitiesOfClass(ServerPlayer.class,
                     player.getBoundingBox().inflate(8.0), LivingEntity::isAlive))
                 ally.addEffect(new MobEffectInstance(MobEffects.SPEED, 80, 2, false, false));
-            ACTIVE_COOLDOWN.put(player.getUUID(), now + 75_000);
+            ACTIVE_COOLDOWNS.start(player.getUUID(), item, now, 75_000);
             return "슈렐리아의 군가: 광역 이동 속도 증가";
         }
         if (item == LolShopItem.REDEMPTION) {
@@ -125,7 +127,7 @@ public final class LegendaryItemEffects {
             for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class,
                     player.getBoundingBox().inflate(8.0), target -> target != player && target.isAlive()))
                 extraMagic(player, target, 3.0f);
-            ACTIVE_COOLDOWN.put(player.getUUID(), now + 90_000);
+            ACTIVE_COOLDOWNS.start(player.getUUID(), item, now, 90_000);
             return "구원: 주변 회복 및 피해";
         }
         return "사용할 수 있는 액티브 아이템이 없습니다";
@@ -402,7 +404,7 @@ public final class LegendaryItemEffects {
             return true;
         });
         HEARTSTEEL_TARGET_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
-        ACTIVE_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
+        ACTIVE_COOLDOWNS.prune(now);
         ZHONYA_UNTIL.entrySet().removeIf(entry -> entry.getValue() <= now);
         STERAK_COOLDOWN.entrySet().removeIf(entry -> entry.getValue() <= now);
         SUNDERED_SKY_TARGET.entrySet().removeIf(entry -> entry.getValue() <= now);

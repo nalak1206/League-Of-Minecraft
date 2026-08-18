@@ -13,8 +13,11 @@
 git clone https://github.com/nalak1206/League-Of-Minecraft.git
 cd League-Of-Minecraft
 $env:JAVA_HOME='C:\path\to\jdk-25'
+$env:GRADLE_USER_HOME='C:\.gradle-league-of-minecraft'
 .\gradlew.bat clean build
 ```
+
+Windows 사용자 경로에 한글이 있으면 Gradle 테스트 실행기의 클래스패스 파일이 깨질 수 있으므로 `GRADLE_USER_HOME`을 영문 경로로 지정합니다. 테스트만 실행하려면 `.\gradlew.bat test`를 사용합니다.
 
 결과물은 `build/libs/league-of-minecraft-<version>.jar`입니다.
 
@@ -22,6 +25,7 @@ $env:JAVA_HOME='C:\path\to\jdk-25'
 
 - 챔피언: `src/main/java/kr/leagueofminecraft/champion/<champion>`
 - 공통 전투 계산: `combat`
+- 순수 로직 회귀 테스트: `src/test/java`
 - 상태 이상·성장·매치·저장: `core`
 - 상점과 아이템 효과: `shop`
 - 아이템 등록: `registry/ModItems.java`

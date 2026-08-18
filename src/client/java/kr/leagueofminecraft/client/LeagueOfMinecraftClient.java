@@ -5,6 +5,7 @@ import kr.leagueofminecraft.ModConstants;
 import kr.leagueofminecraft.network.SkillPayload;
 import kr.leagueofminecraft.network.UiActionPayload;
 import kr.leagueofminecraft.network.YoneAttackAnimationPayload;
+import kr.leagueofminecraft.shop.EquipmentSlotBindings;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -76,9 +77,10 @@ public final class LeagueOfMinecraftClient implements ClientModInitializer {
             if (down && !ALT_ITEM_DOWN[index] && client.player != null
                     && client.player.containerMenu == client.player.inventoryMenu) {
                 int number = index + 1;
-                int action = number == 4
+                int equipmentIndex = EquipmentSlotBindings.equipmentIndexForAltNumber(number);
+                int action = equipmentIndex == EquipmentSlotBindings.TRINKET
                         ? UiActionPayload.USE_TRINKET
-                        : UiActionPayload.USE_ITEM_BASE + (number < 4 ? number - 1 : number - 2);
+                        : UiActionPayload.USE_ITEM_BASE + equipmentIndex;
                 sendUi(action);
                 client.player.getInventory().setSelectedSlot(0);
             }
