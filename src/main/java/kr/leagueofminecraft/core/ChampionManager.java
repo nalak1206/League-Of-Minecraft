@@ -21,6 +21,7 @@ import kr.leagueofminecraft.shop.PlayerEconomy;
 import kr.leagueofminecraft.shop.LegendaryItemEffects;
 import kr.leagueofminecraft.match.MatchManager;
 import kr.leagueofminecraft.match.MatchTeam;
+import kr.leagueofminecraft.match.RecallSystem;
 
 public final class ChampionManager {
     public enum Champion { DARIUS, YONE }
@@ -209,6 +210,7 @@ public final class ChampionManager {
 
     public static void cast(ServerPlayer player, int wireSkill) {
         if (CrowdControl.blocksSkills(player)) return;
+        RecallSystem.onSkillInput(player);
         definition(champion(player)).cast(player, wireSkill);
     }
 

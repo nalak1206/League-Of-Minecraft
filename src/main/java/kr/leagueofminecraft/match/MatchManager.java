@@ -35,12 +35,14 @@ public final class MatchManager {
     public static void initialize() {
         if (initialized) return;
         initialized = true;
+        RecallSystem.initialize();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             file = server.getWorldPath(LevelResource.ROOT).resolve("data").resolve("league_match.json");
             load();
         });
         ServerLifecycleEvents.SERVER_STOPPING.register(MatchManager::save);
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+            RecallSystem.cancel(newPlayer, "사망");
             if (phase == MatchPhase.RUNNING) teleportToBase(newPlayer);
         });
     }
@@ -84,6 +86,7 @@ public final class MatchManager {
     }
 
     public static void stop(MinecraftServer server) {
+        RecallSystem.cancelAll(server, "경기 종료");
         phase = MatchPhase.LOBBY;
         save(server);
     }

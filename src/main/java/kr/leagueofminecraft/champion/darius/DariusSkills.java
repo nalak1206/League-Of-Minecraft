@@ -8,6 +8,7 @@ import kr.leagueofminecraft.champion.yone.YoneSkills;
 import kr.leagueofminecraft.core.ChampionManager;
 import kr.leagueofminecraft.core.CrowdControl;
 import kr.leagueofminecraft.core.UltimateVoiceLines;
+import kr.leagueofminecraft.match.RecallSystem;
 import kr.leagueofminecraft.network.SkillPayload;
 import kr.leagueofminecraft.network.YoneAttackAnimationPayload;
 import kr.leagueofminecraft.registry.ModItems;
@@ -640,6 +641,7 @@ public final class DariusSkills {
         if (server.getTickCount() % 5 == 0) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 if (UltimateVoiceLines.isTypingFor(player)) continue;
+                if (RecallSystem.isRecalling(player)) continue;
                 if (ChampionManager.isDarius(player)) showCooldownActionBar(player, now);
                 else YoneSkills.showActionBar(player, now);
             }

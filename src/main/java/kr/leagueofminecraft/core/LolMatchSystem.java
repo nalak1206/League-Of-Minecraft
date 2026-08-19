@@ -15,6 +15,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import kr.leagueofminecraft.match.MatchManager;
 import kr.leagueofminecraft.match.MatchPhase;
+import kr.leagueofminecraft.match.RecallSystem;
 
 /** Automatic League-style economy and champion progression. */
 public final class LolMatchSystem {
@@ -33,7 +34,10 @@ public final class LolMatchSystem {
             return LegendaryItemEffects.allowDamage(target);
         });
         ServerLivingEntityEvents.AFTER_DAMAGE.register((target, source, base, taken, blocked) -> {
-            if (taken > 0) LegendaryItemEffects.afterDamage(target, source, taken);
+            if (taken > 0) {
+                if (target instanceof ServerPlayer player) RecallSystem.onDamaged(player);
+                LegendaryItemEffects.afterDamage(target, source, taken);
+            }
         });
         ServerTickEvents.END_SERVER_TICK.register(LolMatchSystem::tick);
     }

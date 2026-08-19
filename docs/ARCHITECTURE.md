@@ -21,7 +21,7 @@ src/
 │  └─ mixin/                          # 표시 엔티티와 아이템 보호 훅
 ├─ client/java/kr/leagueofminecraft/client/
 │  └─ LeagueOfMinecraftClient.java    # Z/X/C/V, P/M/B, Alt+숫자 입력과 애니메이션
-├─ test/java/kr/leagueofminecraft/     # 전투 수식·쿨타임·입력·팀 배정 회귀 테스트
+├─ test/java/kr/leagueofminecraft/     # 전투 수식·쿨타임·입력·팀·귀환 회귀 테스트
 └─ main/resources/
    ├─ fabric.mod.json
    ├─ league_of_minecraft.mixins.json
