@@ -6,6 +6,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import kr.leagueofminecraft.match.MatchManager;
+import kr.leagueofminecraft.match.MatchPhase;
+import kr.leagueofminecraft.match.MatchScoreboardTeams;
+import kr.leagueofminecraft.match.MatchTeam;
+import kr.leagueofminecraft.match.TeamWardRules;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
@@ -38,6 +43,7 @@ public final class TrinketSystem {
             while (iterator.hasNext()) {
                 PlacedWard ward = iterator.next();
                 if (now < ward.expiresAt() && ward.entity().isAlive()) continue;
+                MatchScoreboardTeams.removeEntity(server, ward.entity());
                 ward.entity().discard();
                 iterator.remove();
             }
@@ -51,6 +57,8 @@ public final class TrinketSystem {
             return String.format(java.util.Locale.ROOT, "장신구 재사용 %.1f초", (readyAt - now) / 1000.0);
         LolTrinket trinket = PlayerEconomy.trinket(player);
         if (trinket == LolTrinket.ORACLE_LENS) {
+            if (MatchManager.phase() == MatchPhase.RUNNING && MatchManager.team(player).isPlayable())
+                return revealEnemyWards(player, now);
             List<LivingEntity> targets = player.level().getEntitiesOfClass(LivingEntity.class,
                     player.getBoundingBox().inflate(12.0), target -> target != player && target.isAlive());
             for (LivingEntity target : targets)
@@ -67,13 +75,15 @@ public final class TrinketSystem {
         ward.setNoGravity(true);
         ward.setInvulnerable(true);
         ward.setInvisible(true);
-        ward.setGlowingTag(true);
+        ward.setGlowingTag(false);
         ward.setSilent(true);
         ward.setNoBasePlate(true);
         ward.addTag("lol_stealth_ward");
         ward.setItemSlot(EquipmentSlot.HEAD, new ItemStack(LolTrinket.STEALTH_WARD.icon()));
         level.addFreshEntity(ward);
-        WARDS.add(new PlacedWard(ward, now + 90_000));
+        MatchTeam ownerTeam = MatchManager.team(player);
+        MatchScoreboardTeams.addEntity(level.getServer(), ward, ownerTeam);
+        WARDS.add(new PlacedWard(ward, player.getUUID(), ownerTeam, now + 90_000));
         READY_AT.put(player.getUUID(), now + 30_000);
         level.playSound(null, ward.blockPosition(), SoundEvents.AMETHYST_BLOCK_PLACE,
                 SoundSource.PLAYERS, 0.8f, 1.5f);
@@ -84,5 +94,20 @@ public final class TrinketSystem {
         player.connection.send(new ClientboundSetActionBarTextPacket(Component.literal("§a" + result)));
     }
 
-    private record PlacedWard(ArmorStand entity, long expiresAt) {}
+    private static String revealEnemyWards(ServerPlayer player, long now) {
+        MatchTeam viewerTeam = MatchManager.team(player);
+        int found = 0;
+        for (PlacedWard ward : WARDS) {
+            if (!ward.entity().isAlive() || ward.entity().distanceToSqr(player) > 144.0) continue;
+            if (!TeamWardRules.canRevealWithLens(viewerTeam, ward.team(), MatchManager.phase())) continue;
+            ward.entity().addEffect(new MobEffectInstance(MobEffects.GLOWING, 200, 0, false, false));
+            found++;
+        }
+        READY_AT.put(player.getUUID(), now + 60_000);
+        player.level().playSound(null, player.blockPosition(), SoundEvents.BEACON_ACTIVATE,
+                SoundSource.PLAYERS, 0.7f, 1.35f);
+        return "예언자의 렌즈: 적 와드 " + found + "개 감지";
+    }
+
+    private record PlacedWard(ArmorStand entity, UUID owner, MatchTeam team, long expiresAt) {}
 }

@@ -39,6 +39,9 @@ public final class MatchManager {
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             file = server.getWorldPath(LevelResource.ROOT).resolve("data").resolve("league_match.json");
             load();
+            MatchScoreboardTeams.ensure(server);
+            for (ServerPlayer player : server.getPlayerList().getPlayers())
+                MatchScoreboardTeams.syncPlayer(player, team(player));
         });
         ServerLifecycleEvents.SERVER_STOPPING.register(MatchManager::save);
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
@@ -55,6 +58,7 @@ public final class MatchManager {
         ROSTER.assign(player.getUUID(), team);
         ChampionManager.setMode(player, team == MatchTeam.UNASSIGNED
                 ? ChampionManager.GameMode.ADVENTURE : ChampionManager.GameMode.MATCH);
+        MatchScoreboardTeams.syncPlayer(player, team);
         save(player.level().getServer());
         return team;
     }
@@ -62,6 +66,7 @@ public final class MatchManager {
     public static MatchTeam autoAssign(ServerPlayer player) {
         MatchTeam team = ROSTER.autoAssign(player.getUUID());
         ChampionManager.setMode(player, ChampionManager.GameMode.MATCH);
+        MatchScoreboardTeams.syncPlayer(player, team);
         save(player.level().getServer());
         return team;
     }
@@ -78,6 +83,7 @@ public final class MatchManager {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (team(player) != MatchTeam.UNASSIGNED) {
                 ChampionManager.setMode(player, ChampionManager.GameMode.MATCH);
+                MatchScoreboardTeams.syncPlayer(player, team(player));
                 teleportToBase(player);
             }
         }
@@ -101,6 +107,7 @@ public final class MatchManager {
     }
 
     public static void onJoin(ServerPlayer player) {
+        MatchScoreboardTeams.syncPlayer(player, team(player));
         if (team(player) == MatchTeam.UNASSIGNED) return;
         ChampionManager.setMode(player, ChampionManager.GameMode.MATCH);
         if (phase == MatchPhase.RUNNING) teleportToBase(player);

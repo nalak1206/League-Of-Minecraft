@@ -18,6 +18,7 @@ public enum MatchTeam {
 
     public String displayName() { return displayName; }
     public String coloredName() { return color + displayName; }
+    public boolean isPlayable() { return this != UNASSIGNED; }
 
     public static MatchTeam parse(String value) {
         return switch (value.toLowerCase(Locale.ROOT)) {
