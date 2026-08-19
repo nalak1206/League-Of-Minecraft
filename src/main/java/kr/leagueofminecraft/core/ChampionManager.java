@@ -9,6 +9,7 @@ import java.util.UUID;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -210,6 +211,19 @@ public final class ChampionManager {
 
     public static void cast(ServerPlayer player, int wireSkill) {
         if (CrowdControl.blocksSkills(player)) return;
+        int progressionSkill = switch (wireSkill) {
+            case 1 -> 1; // Q / Z
+            case 4 -> 2; // W / X
+            case 2 -> 3; // E / C
+            case 3 -> 4; // R / V
+            default -> 0;
+        };
+        if (progressionSkill == 0) return;
+        if (ChampionProgression.get(player).rank(progressionSkill) == 0) {
+            player.connection.send(new ClientboundSetActionBarTextPacket(
+                    Component.literal("§c아직 스킬을 배우지 않았습니다!")));
+            return;
+        }
         RecallSystem.onSkillInput(player);
         definition(champion(player)).cast(player, wireSkill);
     }

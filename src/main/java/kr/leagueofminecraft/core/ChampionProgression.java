@@ -44,10 +44,9 @@ public final class ChampionProgression {
     public static void setLevel(ServerPlayer player, int level) {
         Progress progress = get(player);
         int target = Math.max(1, Math.min(MAX_LEVEL, level));
-        int gained = Math.max(0, target - progress.level);
         progress.level = target;
         progress.xp = 0;
-        progress.skillPoints += gained;
+        progress.skillPoints = availableSkillPoints(target, progress.ranks);
         PlayerEconomy.applyAttributes(player);
         LolPlayerDataStore.save(player.level().getServer());
     }
@@ -81,12 +80,19 @@ public final class ChampionProgression {
         Progress progress = new Progress();
         progress.level = Math.max(1, Math.min(MAX_LEVEL, snapshot.level()));
         progress.xp = Math.max(0, snapshot.xp());
-        progress.skillPoints = Math.max(0, snapshot.skillPoints());
         int[] source = snapshot.ranks() == null ? new int[5] : snapshot.ranks();
         for (int skill = 1; skill <= 4 && skill < source.length; skill++) {
             progress.ranks[skill] = Math.max(0, Math.min(skill == 4 ? 3 : 5, source[skill]));
         }
+        progress.skillPoints = availableSkillPoints(progress.level, progress.ranks);
         DATA.put(playerId, progress);
+    }
+
+    static int availableSkillPoints(int level, int[] ranks) {
+        int spent = 0;
+        if (ranks != null) for (int skill = 1; skill <= 4 && skill < ranks.length; skill++)
+            spent += Math.max(0, ranks[skill]);
+        return Math.max(0, Math.max(1, Math.min(MAX_LEVEL, level)) - spent);
     }
 
     static void clear() { DATA.clear(); }
