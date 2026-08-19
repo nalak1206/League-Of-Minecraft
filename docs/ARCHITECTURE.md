@@ -40,6 +40,8 @@ src/
 - Minecraft 객체가 필요 없는 공식과 상태 컨테이너는 순수 Java 클래스로 분리해 단위 테스트합니다.
 - MATCH 팀은 `MatchScoreboardTeams`를 통해 `lom_blue`/`lom_red` 스코어보드 팀과 동기화하며,
   와드 소유권과 적 렌즈 판정은 `TeamWardRules`의 순수 규칙을 사용합니다.
+- 와드는 엔티티 태그에 설치자·팀·절대 만료 시각을 저장하며, `TrinketSystem`이 로드된 청크의
+  미추적 와드를 주기적으로 복원하므로 별도 와드 JSON과 엔티티 저장본이 중복되지 않습니다.
 
 ## 호환성 규칙
 

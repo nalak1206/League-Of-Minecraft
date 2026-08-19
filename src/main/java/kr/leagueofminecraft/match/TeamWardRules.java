@@ -11,4 +11,13 @@ public final class TeamWardRules {
     public static boolean canRevealWithLens(MatchTeam viewer, MatchTeam owner, MatchPhase phase) {
         return phase == MatchPhase.RUNNING && viewer.isPlayable() && owner.isPlayable() && viewer != owner;
     }
+
+    public static boolean canDestroy(MatchTeam attacker, MatchTeam owner, MatchPhase phase) {
+        return phase != MatchPhase.RUNNING
+                || (attacker.isPlayable() && owner.isPlayable() && attacker != owner);
+    }
+
+    public static int destructionGold(MatchTeam attacker, MatchTeam owner, MatchPhase phase) {
+        return canDestroy(attacker, owner, phase) && phase == MatchPhase.RUNNING ? 10 : 0;
+    }
 }

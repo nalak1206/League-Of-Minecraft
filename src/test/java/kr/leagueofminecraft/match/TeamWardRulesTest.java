@@ -23,4 +23,17 @@ class TeamWardRulesTest {
         assertFalse(TeamWardRules.isAlliedWard(MatchTeam.BLUE, MatchTeam.BLUE, MatchPhase.LOBBY));
         assertFalse(TeamWardRules.canRevealWithLens(MatchTeam.UNASSIGNED, MatchTeam.RED, MatchPhase.RUNNING));
     }
+
+    @Test
+    void onlyEnemyTeamCanDestroyWardDuringMatch() {
+        assertTrue(TeamWardRules.canDestroy(MatchTeam.BLUE, MatchTeam.RED, MatchPhase.RUNNING));
+        assertFalse(TeamWardRules.canDestroy(MatchTeam.BLUE, MatchTeam.BLUE, MatchPhase.RUNNING));
+        assertFalse(TeamWardRules.canDestroy(MatchTeam.UNASSIGNED, MatchTeam.RED, MatchPhase.RUNNING));
+    }
+
+    @Test
+    void enemyWardAwardsTenGoldOnlyDuringMatch() {
+        assertTrue(TeamWardRules.destructionGold(MatchTeam.BLUE, MatchTeam.RED, MatchPhase.RUNNING) == 10);
+        assertTrue(TeamWardRules.destructionGold(MatchTeam.BLUE, MatchTeam.RED, MatchPhase.LOBBY) == 0);
+    }
 }
