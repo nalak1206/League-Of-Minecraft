@@ -14,13 +14,14 @@ src/
 │  │  ├─ darius/                      # 다리우스 스킬·상태·VFX 서비스
 │  │  └─ yone/                        # 요네 스킬·상태·이동 서비스
 │  ├─ core/                           # 챔피언 선택, 성장, CC, 매치, 저장
+│  ├─ match/                          # 팀 명단, 경기 상태, 기지·부활과 영구 저장
 │  ├─ combat/                         # 물리/마법 피해와 치명타 계산
 │  ├─ shop/                           # 상점, LoL 인벤토리, 경제, 아이템·장신구 효과
 │  ├─ network/                        # 클라이언트-서버 페이로드
 │  └─ mixin/                          # 표시 엔티티와 아이템 보호 훅
 ├─ client/java/kr/leagueofminecraft/client/
 │  └─ LeagueOfMinecraftClient.java    # Z/X/C/V, P/M/B, Alt+숫자 입력과 애니메이션
-├─ test/java/kr/leagueofminecraft/     # 전투 수식·쿨타임·입력 매핑 회귀 테스트
+├─ test/java/kr/leagueofminecraft/     # 전투 수식·쿨타임·입력·팀 배정 회귀 테스트
 └─ main/resources/
    ├─ fabric.mod.json
    ├─ league_of_minecraft.mixins.json

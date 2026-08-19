@@ -26,7 +26,8 @@ Windows 사용자 경로에 한글이 있으면 Gradle 테스트 실행기의 �
 - 챔피언: `src/main/java/kr/leagueofminecraft/champion/<champion>`
 - 공통 전투 계산: `combat`
 - 순수 로직 회귀 테스트: `src/test/java`
-- 상태 이상·성장·매치·저장: `core`
+- 상태 이상·성장·플레이어 저장: `core`
+- 팀·기지·부활·경기 상태: `match`
 - 상점과 아이템 효과: `shop`
 - 아이템 등록: `registry/ModItems.java`
 - 패킷: `network`

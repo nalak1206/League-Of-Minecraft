@@ -13,6 +13,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
+import kr.leagueofminecraft.match.MatchManager;
+import kr.leagueofminecraft.match.MatchPhase;
 
 /** Automatic League-style economy and champion progression. */
 public final class LolMatchSystem {
@@ -25,7 +27,11 @@ public final class LolMatchSystem {
         if (initialized) return;
         initialized = true;
         ServerLivingEntityEvents.AFTER_DEATH.register(LolMatchSystem::afterDeath);
-        ServerLivingEntityEvents.ALLOW_DAMAGE.register((target, source, amount) -> LegendaryItemEffects.allowDamage(target));
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((target, source, amount) -> {
+            if (target instanceof ServerPlayer victim && source.getEntity() instanceof ServerPlayer attacker
+                    && MatchManager.areAllies(victim, attacker)) return false;
+            return LegendaryItemEffects.allowDamage(target);
+        });
         ServerLivingEntityEvents.AFTER_DAMAGE.register((target, source, base, taken, blocked) -> {
             if (taken > 0) LegendaryItemEffects.afterDamage(target, source, taken);
         });
@@ -49,7 +55,8 @@ public final class LolMatchSystem {
         long ticks = server.getTickCount();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             PlayerEconomy.tickRegen(player, ticks);
-            if (ChampionManager.mode(player) != ChampionManager.GameMode.MATCH) {
+            if (ChampionManager.mode(player) != ChampionManager.GameMode.MATCH
+                    || MatchManager.phase() != MatchPhase.RUNNING) {
                 MATCH_JOIN_TICK.remove(player.getUUID());
                 continue;
             }

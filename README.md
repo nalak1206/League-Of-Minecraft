@@ -2,7 +2,7 @@
 
 Minecraft 26.2 Fabric에서 리그 오브 레전드식 챔피언 전투, 성장, 골드, 아이템 상점을 구현하는 모드입니다. 현재 플레이 가능한 챔피언은 다리우스와 요네이며 `Z/X/C/V`가 `Q/W/E/R`에 대응합니다.
 
-현재 버전: `0.13.3`
+현재 버전: `0.14.0`
 
 ## 빠른 시작
 
@@ -11,7 +11,7 @@ $env:JAVA_HOME='C:\path\to\jdk-25'
 .\gradlew.bat clean build
 ```
 
-생성 파일: `build/libs/league-of-minecraft-0.13.3.jar`
+생성 파일: `build/libs/league-of-minecraft-0.14.0.jar`
 
 기본 챔피언 무기는 핫바 1번에 고정됩니다. `Alt+1/2/3/5/6/7`은 M 인벤토리의 1~6번 장비 칸을 사용하고, `Alt+4`는 Q/W와 E/R 사이 장신구 칸을 사용합니다.
 
@@ -30,7 +30,14 @@ $env:JAVA_HOME='C:\path\to\jdk-25'
 /lol stats
 /lol item use
 /lol gold add|set <값>
+/lol match team auto|blue|red|none
+/lol match base set blue|red
+/lol match start|stop|status|spawn
 ```
+
+MATCH 맵에서는 먼저 각 팀 기지에서 `/lol match base set blue|red`를 실행한 뒤 플레이어가
+`/lol match team auto`로 참가합니다. `/lol match start`를 실행하면 참가자가 팀 기지로 이동하며,
+사망 후에도 해당 기지에서 부활합니다. 같은 팀끼리는 경기 중 피해를 입힐 수 없습니다.
 
 ## 문서
 

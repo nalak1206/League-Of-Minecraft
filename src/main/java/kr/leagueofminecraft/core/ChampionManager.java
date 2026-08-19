@@ -19,6 +19,8 @@ import kr.leagueofminecraft.champion.ChampionRegistry;
 import kr.leagueofminecraft.shop.LolShop;
 import kr.leagueofminecraft.shop.PlayerEconomy;
 import kr.leagueofminecraft.shop.LegendaryItemEffects;
+import kr.leagueofminecraft.match.MatchManager;
+import kr.leagueofminecraft.match.MatchTeam;
 
 public final class ChampionManager {
     public enum Champion { DARIUS, YONE }
@@ -32,6 +34,7 @@ public final class ChampionManager {
     public static void initialize() {
         LolPlayerDataStore.initialize();
         LolMatchSystem.initialize();
+        MatchManager.initialize();
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
             dispatcher.register(Commands.literal("lol")
                 .then(Commands.literal("champion")
@@ -54,6 +57,48 @@ public final class ChampionManager {
                             ctx.getSource().sendSuccess(() -> Component.literal("LOL 모드: " + name), false);
                             return 1;
                         } catch (IllegalArgumentException ignored) { return 0; }
+                    })))
+                .then(Commands.literal("match")
+                    .then(Commands.literal("team")
+                        .then(Commands.argument("name", StringArgumentType.word()).executes(ctx -> {
+                            ServerPlayer player = ctx.getSource().getPlayerOrException();
+                            String name = StringArgumentType.getString(ctx, "name");
+                            try {
+                                MatchTeam team = name.equalsIgnoreCase("auto")
+                                        ? MatchManager.autoAssign(player)
+                                        : MatchManager.assign(player, MatchTeam.parse(name));
+                                ctx.getSource().sendSuccess(() -> Component.literal("팀: " + team.coloredName()), false);
+                                return 1;
+                            } catch (IllegalArgumentException ignored) { return 0; }
+                        })))
+                    .then(Commands.literal("base")
+                        .then(Commands.literal("set")
+                            .then(Commands.argument("team", StringArgumentType.word()).executes(ctx -> {
+                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                try {
+                                    MatchTeam team = MatchTeam.parse(StringArgumentType.getString(ctx, "team"));
+                                    MatchManager.setBase(player, team);
+                                    ctx.getSource().sendSuccess(() -> Component.literal(team.coloredName() + "§r 기지 지정 완료"), false);
+                                    return 1;
+                                } catch (IllegalArgumentException ignored) { return 0; }
+                            }))))
+                    .then(Commands.literal("start").executes(ctx -> {
+                        boolean started = MatchManager.start(ctx.getSource().getServer());
+                        ctx.getSource().sendSuccess(() -> Component.literal(started
+                                ? "§aMATCH 시작" : "§c블루와 레드 기지를 먼저 지정하세요."), false);
+                        return started ? 1 : 0;
+                    }))
+                    .then(Commands.literal("stop").executes(ctx -> {
+                        MatchManager.stop(ctx.getSource().getServer());
+                        ctx.getSource().sendSuccess(() -> Component.literal("§eMATCH 종료"), false);
+                        return 1;
+                    }))
+                    .then(Commands.literal("spawn").executes(ctx ->
+                            MatchManager.teleportToBase(ctx.getSource().getPlayerOrException()) ? 1 : 0))
+                    .then(Commands.literal("status").executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        ctx.getSource().sendSuccess(() -> Component.literal(MatchManager.status(player)), false);
+                        return 1;
                     })))
                 .then(Commands.literal("level")
                     .then(Commands.argument("value", IntegerArgumentType.integer(1, 18)).executes(ctx -> {
@@ -79,6 +124,7 @@ public final class ChampionManager {
                     ChampionProgression.Progress progress = ChampionProgression.get(player);
                     ctx.getSource().sendSuccess(() -> Component.literal(
                             "Champion=" + champion(player) + " Mode=" + mode(player)
+                            + " Team=" + MatchManager.team(player)
                             + " Level=" + progress.level() + " XP=" + progress.xp()
                             + " Points=" + progress.skillPoints()
                             + " Q/W/E/R=" + progress.rank(1) + "/" + progress.rank(2)
@@ -183,6 +229,7 @@ public final class ChampionManager {
         clearChampionWeapons(player);
         definition(champion(player)).equip(player);
         PlayerEconomy.applyAttributes(player);
+        MatchManager.onJoin(player);
     }
 
     private static void clearChampionWeapons(ServerPlayer player) {
@@ -194,6 +241,11 @@ public final class ChampionManager {
         ItemStack offhand = player.getOffhandItem();
         if (definitions().values().stream().anyMatch(definition -> definition.isChampionWeapon(offhand)))
             player.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+    }
+
+    public static void setMode(ServerPlayer player, GameMode mode) {
+        MODES.put(player.getUUID(), mode == null ? GameMode.ADVENTURE : mode);
+        LolPlayerDataStore.save(player.level().getServer());
     }
 
     public static void reduceUltimateCooldown(ServerPlayer player, long millis) {
