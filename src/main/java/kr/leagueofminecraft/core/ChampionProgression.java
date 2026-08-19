@@ -51,6 +51,16 @@ public final class ChampionProgression {
         LolPlayerDataStore.save(player.level().getServer());
     }
 
+    public static void reset(ServerPlayer player) {
+        reset(player.getUUID());
+        PlayerEconomy.applyAttributes(player);
+        LolPlayerDataStore.save(player.level().getServer());
+    }
+
+    static void reset(UUID playerId) {
+        DATA.put(playerId, new Progress());
+    }
+
     public static boolean rankUp(ServerPlayer player, int skill) {
         if (skill < 1 || skill > 4) return false;
         Progress progress = get(player);

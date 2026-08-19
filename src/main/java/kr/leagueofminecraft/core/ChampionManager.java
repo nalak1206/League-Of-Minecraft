@@ -185,6 +185,9 @@ public final class ChampionManager {
                     ServerPlayer player = ctx.getSource().getPlayerOrException();
                     DariusSkills.reset(player);
                     YoneSkills.reset(player);
+                    ChampionProgression.reset(player);
+                    ctx.getSource().sendSuccess(() -> Component.literal(
+                            "§a레벨, 경험치, 스킬 랭크와 스킬 포인트를 초기화했습니다."), false);
                     return 1;
                 }))));
     }
@@ -198,9 +201,11 @@ public final class ChampionManager {
     }
 
     public static void select(ServerPlayer player, Champion champion) {
+        boolean championChanged = champion(player) != champion;
         definitions().values().forEach(definition -> definition.reset(player));
         clearChampionWeapons(player);
         CHAMPIONS.put(player.getUUID(), champion);
+        if (championChanged) ChampionProgression.reset(player);
         definition(champion).equip(player);
         PlayerEconomy.applyAttributes(player);
         LolPlayerDataStore.save(player.level().getServer());
