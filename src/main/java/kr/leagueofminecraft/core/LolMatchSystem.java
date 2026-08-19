@@ -29,6 +29,7 @@ public final class LolMatchSystem {
         initialized = true;
         ServerLivingEntityEvents.AFTER_DEATH.register(LolMatchSystem::afterDeath);
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((target, source, amount) -> {
+            if (LegendaryItemEffects.isKnightsVowTransfer(target)) return true;
             if (target instanceof ServerPlayer victim && source.getEntity() instanceof ServerPlayer attacker
                     && MatchManager.areAllies(victim, attacker)) return false;
             return LegendaryItemEffects.allowDamage(target);

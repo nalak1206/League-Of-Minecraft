@@ -17,7 +17,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,6 +27,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -35,6 +39,8 @@ public final class LegendaryItemEffects {
     private static final int CLEAVER_MAX_STACKS = 6;
     private static final double CLEAVER_ARMOR_REDUCTION_PER_STACK = 0.05;
     private static final Identifier CLEAVER_ARMOR_ID = ModConstants.id("black_cleaver_shred");
+    private static final ResourceKey<DamageType> KNIGHTS_VOW_TRANSFER = ResourceKey.create(
+            Registries.DAMAGE_TYPE, ModConstants.id("knights_vow_transfer"));
     private static final Map<UUID, Long> SPELLBLADE_ARMED = new HashMap<>();
     private static final Map<UUID, Long> SPELLBLADE_COOLDOWN = new HashMap<>();
     private static final Map<UUID, RuinedKingState> RUINED_KING = new HashMap<>();
@@ -49,6 +55,7 @@ public final class LegendaryItemEffects {
     private static final Map<UUID, Long> STERAK_COOLDOWN = new HashMap<>();
     private static final Set<UUID> REFLECTING = new HashSet<>();
     private static final Set<UUID> ITEM_PROC = new HashSet<>();
+    private static final Set<UUID> VOW_TRANSFER_TARGETS = new HashSet<>();
     private static final Map<UUID, Long> EDGE_OF_NIGHT_RECHARGE = new HashMap<>();
     private static final Map<UUID, Long> SUNDERED_SKY_TARGET = new HashMap<>();
     private static final Map<UUID, Long> OPPORTUNITY_COOLDOWN = new HashMap<>();
@@ -176,6 +183,7 @@ public final class LegendaryItemEffects {
     }
 
     public static boolean allowDamage(LivingEntity target) {
+        if (VOW_TRANSFER_TARGETS.contains(target.getUUID())) return true;
         long now = System.currentTimeMillis();
         if (ZHONYA_UNTIL.getOrDefault(target.getUUID(), 0L) > now) return false;
         if (target instanceof ServerPlayer player
@@ -192,6 +200,7 @@ public final class LegendaryItemEffects {
     }
 
     public static void afterDamage(LivingEntity target, net.minecraft.world.damagesource.DamageSource source, float amount) {
+        if (VOW_TRANSFER_TARGETS.contains(target.getUUID())) return;
         long now = System.currentTimeMillis();
         long previousCombat = LAST_COMBAT.getOrDefault(target.getUUID(), 0L);
         if (now - previousCombat > 5_000) COMBAT_STARTED.put(target.getUUID(), now);
@@ -200,8 +209,11 @@ public final class LegendaryItemEffects {
             long attackerPrevious = LAST_COMBAT.getOrDefault(attacker.getUUID(), 0L);
             if (now - attackerPrevious > 5_000) COMBAT_STARTED.put(attacker.getUUID(), now);
             LAST_COMBAT.put(attacker.getUUID(), now);
+            if (attacker instanceof ServerPlayer protectedAlly && target instanceof ServerPlayer)
+                healKnightsVowOwner(protectedAlly, amount);
         }
         if (!(target instanceof ServerPlayer player)) return;
+        redirectKnightsVowDamage(player, source, amount);
         if (PlayerEconomy.owns(player, LolShopItem.THORNMAIL) && source.getEntity() instanceof LivingEntity attacker
                 && attacker != player && REFLECTING.add(player.getUUID())) {
             try {
@@ -252,6 +264,52 @@ public final class LegendaryItemEffects {
         } finally {
             ITEM_PROC.remove(player.getUUID());
         }
+    }
+
+    public static boolean isKnightsVowTransfer(LivingEntity target) {
+        return VOW_TRANSFER_TARGETS.contains(target.getUUID());
+    }
+
+    private static void redirectKnightsVowDamage(ServerPlayer protectedAlly, DamageSource source, float damageTaken) {
+        ServerPlayer owner = findKnightsVowOwner(protectedAlly);
+        if (owner == null) return;
+        float redirected = SupportItemRules.redirectedDamage(damageTaken);
+        if (redirected <= 0.0f) return;
+
+        protectedAlly.setHealth(Math.min(protectedAlly.getMaxHealth(), protectedAlly.getHealth() + redirected));
+        var type = owner.level().registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE)
+                .getOrThrow(KNIGHTS_VOW_TRANSFER);
+        DamageSource transferSource = new DamageSource(type, source.getDirectEntity(), source.getEntity());
+        VOW_TRANSFER_TARGETS.add(owner.getUUID());
+        try {
+            owner.invulnerableTime = 0;
+            owner.hurtServer(owner.level(), transferSource, redirected);
+            owner.invulnerableTime = 0;
+        } finally {
+            VOW_TRANSFER_TARGETS.remove(owner.getUUID());
+        }
+    }
+
+    private static void healKnightsVowOwner(ServerPlayer protectedAlly, float championDamage) {
+        ServerPlayer owner = findKnightsVowOwner(protectedAlly);
+        if (owner != null) owner.heal(SupportItemRules.vowOwnerHealing(championDamage));
+    }
+
+    private static ServerPlayer findKnightsVowOwner(ServerPlayer protectedAlly) {
+        ServerPlayer closest = null;
+        double closestDistance = Double.MAX_VALUE;
+        for (ServerPlayer owner : protectedAlly.level().getServer().getPlayerList().getPlayers()) {
+            if (!PlayerEconomy.owns(owner, LolShopItem.KNIGHTS_VOW)
+                    || !protectedAlly.getUUID().equals(PlayerEconomy.knightsVowTarget(owner))) continue;
+            double distance = owner.distanceToSqr(protectedAlly);
+            boolean allied = SupportItemRules.isPlayerAlly(ChampionManager.mode(owner),
+                    MatchManager.team(owner), MatchManager.team(protectedAlly));
+            if (!SupportItemRules.isVowActive(owner.isAlive(), owner.getHealth(), owner.getMaxHealth(),
+                    owner.level() == protectedAlly.level(), distance, allied) || distance >= closestDistance) continue;
+            closest = owner;
+            closestDistance = distance;
+        }
+        return closest;
     }
 
     public static void onTakedown(ServerPlayer killer, LivingEntity target) {
@@ -473,17 +531,6 @@ public final class LegendaryItemEffects {
                     && now - LAST_COMBAT.getOrDefault(player.getUUID(), now) <= 5_000
                     && now - COMBAT_STARTED.getOrDefault(player.getUUID(), now) >= 5_000)
                 player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 30, 0, false, false));
-            if (PlayerEconomy.owns(player, LolShopItem.KNIGHTS_VOW)) {
-                UUID targetId = PlayerEconomy.knightsVowTarget(player);
-                ServerPlayer ally = targetId == null ? null : server.getPlayerList().getPlayer(targetId);
-                if (ally != null && ally.isAlive() && ally.level() == player.level()
-                        && player.distanceToSqr(ally) <= 32.0 * 32.0
-                        && SupportItemRules.isPlayerAlly(ChampionManager.mode(player),
-                        MatchManager.team(player), MatchManager.team(ally))) {
-                    ally.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 30, 0, false, false));
-                    if (now - LAST_COMBAT.getOrDefault(ally.getUUID(), 0L) <= 2_000) player.heal(0.25f);
-                }
-            }
         }
     }
 
