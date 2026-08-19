@@ -20,6 +20,7 @@ import kr.leagueofminecraft.champion.ChampionRegistry;
 import kr.leagueofminecraft.shop.LolShop;
 import kr.leagueofminecraft.shop.PlayerEconomy;
 import kr.leagueofminecraft.shop.LegendaryItemEffects;
+import kr.leagueofminecraft.shop.TrinketSystem;
 import kr.leagueofminecraft.match.MatchManager;
 import kr.leagueofminecraft.match.MatchTeam;
 import kr.leagueofminecraft.match.RecallSystem;
@@ -186,8 +187,10 @@ public final class ChampionManager {
                     DariusSkills.reset(player);
                     YoneSkills.reset(player);
                     ChampionProgression.reset(player);
+                    PlayerEconomy.reset(player);
+                    TrinketSystem.reset(player);
                     ctx.getSource().sendSuccess(() -> Component.literal(
-                            "§a레벨, 경험치, 스킬 랭크와 스킬 포인트를 초기화했습니다."), false);
+                            "§a성장도, 구매 아이템, 골드, 장신구와 설치 와드를 초기화했습니다."), false);
                     return 1;
                 }))));
     }

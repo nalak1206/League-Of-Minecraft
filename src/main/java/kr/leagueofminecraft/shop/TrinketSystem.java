@@ -37,6 +37,7 @@ public final class TrinketSystem {
     private static final String OWNER_PREFIX = "lol_ward_owner_";
     private static final String TEAM_PREFIX = "lol_ward_team_";
     private static final String EXPIRES_PREFIX = "lol_ward_expires_";
+    private static final String HEALTH_PREFIX = "lol_ward_health_";
     private static final Map<UUID, Long> READY_AT = new HashMap<>();
     private static final List<PlacedWard> WARDS = new ArrayList<>();
     private static boolean initialized;
@@ -107,8 +108,9 @@ public final class TrinketSystem {
         ward.addTag(OWNER_PREFIX + player.getUUID());
         ward.addTag(TEAM_PREFIX + ownerTeam.name());
         ward.addTag(EXPIRES_PREFIX + expiresAt);
+        ward.addTag(HEALTH_PREFIX + TeamWardRules.MAX_HEALTH);
         MatchScoreboardTeams.addEntity(level.getServer(), ward, ownerTeam);
-        WARDS.add(new PlacedWard(ward, player.getUUID(), ownerTeam, expiresAt));
+        WARDS.add(new PlacedWard(ward, player.getUUID(), ownerTeam, expiresAt, TeamWardRules.MAX_HEALTH));
         READY_AT.put(player.getUUID(), now + 30_000);
         level.playSound(null, ward.blockPosition(), SoundEvents.AMETHYST_BLOCK_PLACE,
                 SoundSource.PLAYERS, 0.8f, 1.5f);
@@ -117,6 +119,13 @@ public final class TrinketSystem {
 
     public static void showResult(ServerPlayer player, String result) {
         player.connection.send(new ClientboundSetActionBarTextPacket(Component.literal("§a" + result)));
+    }
+
+    public static void reset(ServerPlayer player) {
+        READY_AT.remove(player.getUUID());
+        List<PlacedWard> owned = WARDS.stream()
+                .filter(ward -> ward.owner().equals(player.getUUID())).toList();
+        for (PlacedWard ward : owned) removeWard(player.level().getServer(), ward);
     }
 
     private static String revealEnemyWards(ServerPlayer player, long now) {
@@ -144,6 +153,16 @@ public final class TrinketSystem {
         MatchTeam attackerTeam = MatchManager.team(player);
         if (!TeamWardRules.canDestroy(attackerTeam, ward.team(), MatchManager.phase())) {
             showResult(player, "아군 와드는 파괴할 수 없습니다");
+            return;
+        }
+        int remainingHealth = TeamWardRules.remainingHealthAfterAttack(ward.health());
+        if (remainingHealth > 0) {
+            updateHealth(ward, remainingHealth);
+            showResult(player, "와드 체력 §f" + remainingHealth + "§a/" + TeamWardRules.MAX_HEALTH);
+            player.level().sendParticles(ParticleTypes.CRIT, entity.getX(), entity.getY() + 0.6, entity.getZ(),
+                    5, 0.18, 0.25, 0.18, 0.04);
+            player.level().playSound(null, entity.blockPosition(), SoundEvents.ARMOR_STAND_HIT,
+                    SoundSource.PLAYERS, 0.55f, 1.5f);
             return;
         }
         int gold = TeamWardRules.destructionGold(attackerTeam, ward.team(), MatchManager.phase());
@@ -184,14 +203,18 @@ public final class TrinketSystem {
         UUID owner = null;
         MatchTeam team = MatchTeam.UNASSIGNED;
         long expiresAt = 0L;
+        int health = TeamWardRules.MAX_HEALTH;
         for (String tag : entity.entityTags()) {
             try {
                 if (tag.startsWith(OWNER_PREFIX)) owner = UUID.fromString(tag.substring(OWNER_PREFIX.length()));
                 else if (tag.startsWith(TEAM_PREFIX)) team = MatchTeam.valueOf(tag.substring(TEAM_PREFIX.length()));
                 else if (tag.startsWith(EXPIRES_PREFIX)) expiresAt = Long.parseLong(tag.substring(EXPIRES_PREFIX.length()));
+                else if (tag.startsWith(HEALTH_PREFIX)) health = Integer.parseInt(tag.substring(HEALTH_PREFIX.length()));
             } catch (IllegalArgumentException ignored) { }
         }
-        return owner != null && expiresAt > 0 ? new PlacedWard(entity, owner, team, expiresAt) : null;
+        return owner != null && expiresAt > 0
+                ? new PlacedWard(entity, owner, team, expiresAt, Math.max(1, Math.min(TeamWardRules.MAX_HEALTH, health)))
+                : null;
     }
 
     private static PlacedWard find(UUID entityId) {
@@ -204,5 +227,14 @@ public final class TrinketSystem {
         ward.entity().discard();
     }
 
-    private record PlacedWard(ArmorStand entity, UUID owner, MatchTeam team, long expiresAt) {}
+    private static void updateHealth(PlacedWard ward, int health) {
+        for (String tag : Set.copyOf(ward.entity().entityTags()))
+            if (tag.startsWith(HEALTH_PREFIX)) ward.entity().removeTag(tag);
+        ward.entity().addTag(HEALTH_PREFIX + health);
+        int index = WARDS.indexOf(ward);
+        if (index >= 0) WARDS.set(index,
+                new PlacedWard(ward.entity(), ward.owner(), ward.team(), ward.expiresAt(), health));
+    }
+
+    private record PlacedWard(ArmorStand entity, UUID owner, MatchTeam team, long expiresAt, int health) {}
 }

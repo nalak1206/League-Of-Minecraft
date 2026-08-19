@@ -60,6 +60,16 @@ public final class PlayerEconomy {
         LolPlayerDataStore.save(player.level().getServer());
     }
 
+    public static void reset(ServerPlayer player) {
+        reset(player.getUUID());
+        applyAttributes(player);
+        LolPlayerDataStore.save(player.level().getServer());
+    }
+
+    static void reset(UUID playerId) {
+        ACCOUNTS.put(playerId, new Account());
+    }
+
     public static void applyAttributes(ServerPlayer player) {
         Account account = account(player);
         double damage = 0, health = 0, attackSpeed = 0, armor = 0, move = 0;

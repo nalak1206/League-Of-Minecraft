@@ -1,11 +1,23 @@
 package kr.leagueofminecraft.match;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
 class TeamWardRulesTest {
+    @Test
+    void wardRequiresThreeEnemyAttacks() {
+        int health = TeamWardRules.MAX_HEALTH;
+        health = TeamWardRules.remainingHealthAfterAttack(health);
+        assertEquals(2, health);
+        health = TeamWardRules.remainingHealthAfterAttack(health);
+        assertEquals(1, health);
+        health = TeamWardRules.remainingHealthAfterAttack(health);
+        assertEquals(0, health);
+    }
+
     @Test
     void alliedWardIsVisibleDuringMatch() {
         assertTrue(TeamWardRules.isAlliedWard(MatchTeam.BLUE, MatchTeam.BLUE, MatchPhase.RUNNING));
