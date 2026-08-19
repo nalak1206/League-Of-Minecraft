@@ -42,6 +42,8 @@ src/
   와드 소유권과 적 렌즈 판정은 `TeamWardRules`의 순수 규칙을 사용합니다.
 - 와드는 엔티티 태그에 설치자·팀·절대 만료 시각을 저장하며, `TrinketSystem`이 로드된 청크의
   미추적 와드를 주기적으로 복원하므로 별도 와드 JSON과 엔티티 저장본이 중복되지 않습니다.
+- 서포터 대상 판정은 `SupportItemRules`의 순수 규칙을 사용하고, 기사의 맹세 결속 UUID는
+  `PlayerEconomy.AccountSnapshot`과 `lol_hyunmin_players.json`을 통해 영구 저장합니다.
 
 ## 호환성 규칙
 

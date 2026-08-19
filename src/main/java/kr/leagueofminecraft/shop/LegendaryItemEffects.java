@@ -11,6 +11,11 @@ import kr.leagueofminecraft.core.ChampionManager;
 import kr.leagueofminecraft.core.PerPlayerCooldowns;
 import kr.leagueofminecraft.combat.CombatEngine;
 import kr.leagueofminecraft.combat.CriticalStrikeEngine;
+import kr.leagueofminecraft.match.MatchManager;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
@@ -50,8 +55,31 @@ public final class LegendaryItemEffects {
     private static final Map<UUID, Long> IMPERIAL_TARGET_COOLDOWN = new HashMap<>();
     private static final Map<UUID, Long> TAKEDOWN_GUARD = new HashMap<>();
     private static final Map<UUID, BurnState> LIANDRY_BURNS = new HashMap<>();
+    private static boolean initialized;
 
     private LegendaryItemEffects() {}
+
+    public static void initialize() {
+        if (initialized) return;
+        initialized = true;
+        UseEntityCallback.EVENT.register((player, level, hand, target, hit) -> {
+            if (level.isClientSide() || !(player instanceof ServerPlayer owner)
+                    || !(target instanceof ServerPlayer ally)
+                    || !PlayerEconomy.owns(owner, LolShopItem.KNIGHTS_VOW)) return InteractionResult.PASS;
+            if (!SupportItemRules.canBindVow(owner == ally, ChampionManager.mode(owner),
+                    MatchManager.team(owner), MatchManager.team(ally))) {
+                owner.connection.send(new ClientboundSetActionBarTextPacket(Component.literal(
+                        "§c기사의 맹세: 아군 플레이어만 결속할 수 있습니다")));
+                return InteractionResult.SUCCESS;
+            }
+            PlayerEconomy.bindKnightsVow(owner, ally.getUUID());
+            owner.connection.send(new ClientboundSetActionBarTextPacket(Component.literal(
+                    "§a기사의 맹세 결속: §f" + ally.getName().getString())));
+            owner.level().playSound(null, owner.blockPosition(), SoundEvents.BEACON_ACTIVATE,
+                    SoundSource.PLAYERS, 0.65f, 1.5f);
+            return InteractionResult.SUCCESS;
+        });
+    }
 
     public static String useActive(ServerPlayer player) {
         for (LolShopItem item : PlayerEconomy.equipment(player)) {
@@ -122,13 +150,21 @@ public final class LegendaryItemEffects {
             return "슈렐리아의 군가: 광역 이동 속도 증가";
         }
         if (item == LolShopItem.REDEMPTION) {
-            player.heal((float) (6.0 * (1.0 + PlayerEconomy.healAndShieldPower(player))));
-            applyArdentBuff(player, player);
+            float healing = (float) (6.0 * (1.0 + PlayerEconomy.healAndShieldPower(player)));
             for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class,
-                    player.getBoundingBox().inflate(8.0), target -> target != player && target.isAlive()))
-                extraMagic(player, target, 3.0f);
+                    player.getBoundingBox().inflate(8.0), LivingEntity::isAlive)) {
+                if (target == player || target instanceof ServerPlayer targetPlayer
+                        && SupportItemRules.isPlayerAlly(ChampionManager.mode(player),
+                        MatchManager.team(player), MatchManager.team(targetPlayer))) {
+                    target.heal(healing);
+                    if (target instanceof ServerPlayer ally) applyArdentBuff(player, ally);
+                } else {
+                    extraMagic(player, target, 3.0f);
+                }
+            }
+            redemptionRing(player.level(), player);
             ACTIVE_COOLDOWNS.start(player.getUUID(), item, now, 90_000);
-            return "구원: 주변 회복 및 피해";
+            return "구원: 사용자 중심 아군 회복 및 적 피해";
         }
         return "사용할 수 있는 액티브 아이템이 없습니다";
     }
@@ -438,15 +474,30 @@ public final class LegendaryItemEffects {
                     && now - COMBAT_STARTED.getOrDefault(player.getUUID(), now) >= 5_000)
                 player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 30, 0, false, false));
             if (PlayerEconomy.owns(player, LolShopItem.KNIGHTS_VOW)) {
-                ServerPlayer ally = player.level().getEntitiesOfClass(ServerPlayer.class,
-                        player.getBoundingBox().inflate(8.0), entity -> entity != player && entity.isAlive())
-                        .stream().min(java.util.Comparator.comparingDouble(player::distanceToSqr)).orElse(null);
-                if (ally != null) {
+                UUID targetId = PlayerEconomy.knightsVowTarget(player);
+                ServerPlayer ally = targetId == null ? null : server.getPlayerList().getPlayer(targetId);
+                if (ally != null && ally.isAlive() && ally.level() == player.level()
+                        && player.distanceToSqr(ally) <= 32.0 * 32.0
+                        && SupportItemRules.isPlayerAlly(ChampionManager.mode(player),
+                        MatchManager.team(player), MatchManager.team(ally))) {
                     ally.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 30, 0, false, false));
                     if (now - LAST_COMBAT.getOrDefault(ally.getUUID(), 0L) <= 2_000) player.heal(0.25f);
                 }
             }
         }
+    }
+
+    private static void redemptionRing(ServerLevel level, ServerPlayer player) {
+        for (int i = 0; i < 64; i++) {
+            double angle = Math.PI * 2.0 * i / 64.0;
+            level.sendParticles(ParticleTypes.END_ROD,
+                    player.getX() + Math.cos(angle) * 8.0, player.getY() + 0.12,
+                    player.getZ() + Math.sin(angle) * 8.0, 1, 0, 0.02, 0, 0);
+        }
+        level.sendParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 0.8, player.getZ(),
+                70, 4.0, 0.7, 4.0, 0.08);
+        level.playSound(null, player.blockPosition(), SoundEvents.TOTEM_USE,
+                SoundSource.PLAYERS, 0.8f, 1.15f);
     }
 
     private record RuinedKingState(UUID attacker, int hits, long expiresAt) {}

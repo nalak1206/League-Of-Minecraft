@@ -20,6 +20,7 @@ public final class UiActions {
         if (initialized) return;
         initialized = true;
         TrinketSystem.initialize();
+        LegendaryItemEffects.initialize();
         PayloadTypeRegistry.serverboundPlay().register(UiActionPayload.TYPE, UiActionPayload.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(UiActionPayload.TYPE, (payload, context) -> {
             if (payload.action() == UiActionPayload.OPEN_SHOP) LolShop.open(context.player());

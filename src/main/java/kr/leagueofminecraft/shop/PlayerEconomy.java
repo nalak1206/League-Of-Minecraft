@@ -173,6 +173,13 @@ public final class PlayerEconomy {
 
     public static LolTrinket trinket(ServerPlayer player) { return account(player).trinket; }
 
+    public static UUID knightsVowTarget(ServerPlayer player) { return account(player).knightsVowTarget; }
+
+    public static void bindKnightsVow(ServerPlayer player, UUID target) {
+        account(player).knightsVowTarget = target;
+        LolPlayerDataStore.save(player.level().getServer());
+    }
+
     public static LolTrinket cycleTrinket(ServerPlayer player) {
         Account account = account(player);
         account.trinket = account.trinket == LolTrinket.STEALTH_WARD
@@ -185,7 +192,7 @@ public final class PlayerEconomy {
     public static AccountSnapshot snapshot(UUID id) {
         Account account = ACCOUNTS.getOrDefault(id, new Account());
         return new AccountSnapshot(account.gold, account.items.stream().map(Enum::name).toArray(String[]::new),
-                account.trinket.name());
+                account.trinket.name(), account.knightsVowTarget == null ? null : account.knightsVowTarget.toString());
     }
     public static void load(UUID id, AccountSnapshot snapshot) {
         Account account = new Account();
@@ -195,6 +202,9 @@ public final class PlayerEconomy {
         }
         try { account.trinket = LolTrinket.valueOf(snapshot.trinket()); }
         catch (IllegalArgumentException | NullPointerException ignored) { }
+        try { account.knightsVowTarget = snapshot.knightsVowTarget() == null
+                ? null : UUID.fromString(snapshot.knightsVowTarget()); }
+        catch (IllegalArgumentException ignored) { }
         ACCOUNTS.put(id, account);
     }
     public static void clear() { ACCOUNTS.clear(); }
@@ -206,9 +216,10 @@ public final class PlayerEconomy {
         private int gold = 500;
         private final EnumSet<LolShopItem> items = EnumSet.noneOf(LolShopItem.class);
         private LolTrinket trinket = LolTrinket.STEALTH_WARD;
+        private UUID knightsVowTarget;
         public int gold() { return gold; }
         public boolean owns(LolShopItem item) { return items.contains(item); }
         public Set<LolShopItem> items() { return Set.copyOf(items); }
     }
-    public record AccountSnapshot(int gold, String[] items, String trinket) {}
+    public record AccountSnapshot(int gold, String[] items, String trinket, String knightsVowTarget) {}
 }

@@ -57,6 +57,8 @@ public final class LolPlayerDataStore {
             data.addProperty("gold", economy.gold());
             data.add("items", GSON.toJsonTree(economy.items()));
             data.addProperty("trinket", economy.trinket());
+            if (economy.knightsVowTarget() != null)
+                data.addProperty("knightsVowTarget", economy.knightsVowTarget());
             root.add(playerId.toString(), data);
         }
         try {
@@ -86,7 +88,8 @@ public final class LolPlayerDataStore {
                         integer(data, "level", 1), integer(data, "xp", 0), integer(data, "skillPoints", 1), ranks));
                 String[] items = data.has("items") ? GSON.fromJson(data.get("items"), String[].class) : new String[0];
                 PlayerEconomy.load(playerId, new PlayerEconomy.AccountSnapshot(integer(data, "gold", 500), items,
-                        data.has("trinket") ? data.get("trinket").getAsString() : "STEALTH_WARD"));
+                        data.has("trinket") ? data.get("trinket").getAsString() : "STEALTH_WARD",
+                        data.has("knightsVowTarget") ? data.get("knightsVowTarget").getAsString() : null));
             }
         } catch (Exception ignored) {
             ChampionManager.clear();
