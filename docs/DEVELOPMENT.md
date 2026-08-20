@@ -32,7 +32,7 @@ Windows 사용자 경로에 한글이 있으면 Gradle 테스트 실행기의 �
 - 아이템 등록: `registry/ModItems.java`
 - 패킷: `network`
 - 키 입력: `src/client/java/kr/leagueofminecraft/client`
-- 텍스처/모델/언어: `src/main/resources/assets/darius_skills`
+- 텍스처/모델/언어: `src/main/resources/assets/league_of_minecraft`
 
 새 챔피언 로직을 하나의 거대한 진입점에 추가하지 않습니다. 챔피언별 폴더에 구현하고 `ChampionManager`에는 선택과 라우팅만 연결합니다.
 

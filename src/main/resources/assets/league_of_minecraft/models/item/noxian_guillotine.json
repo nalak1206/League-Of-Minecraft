@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/handheld_mace",
   "textures": {
-    "layer0": "darius_skills:item/noxian_guillotine"
+    "layer0": "league_of_minecraft:item/noxian_guillotine"
   }
 }

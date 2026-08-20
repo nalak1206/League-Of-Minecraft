@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/handheld",
   "textures": {
-    "layer0": "darius_skills:item/crippling_strike"
+    "layer0": "league_of_minecraft:item/crippling_strike"
   }
 }

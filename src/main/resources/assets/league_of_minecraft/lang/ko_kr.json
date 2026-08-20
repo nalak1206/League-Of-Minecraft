@@ -1,0 +1,15 @@
+{
+  "key.category.league_of_minecraft.skills": "챔피언 스킬",
+  "key.league_of_minecraft.q_keyboard": "스킬 1",
+  "key.league_of_minecraft.w_keyboard": "스킬 2",
+  "key.league_of_minecraft.e_keyboard": "스킬 3",
+  "key.league_of_minecraft.r_keyboard": "스킬 4",
+  "key.league_of_minecraft.shop": "상점 열기",
+  "key.league_of_minecraft.lol_inventory": "LoL 아이템 인벤토리",
+  "key.league_of_minecraft.recall": "귀환 (추후 구현)"
+  ,"item.league_of_minecraft.noxian_power": "녹서스의 힘"
+  ,"item.league_of_minecraft.crippling_strike": "마비의 일격"
+  ,"item.league_of_minecraft.noxian_guillotine": "녹서스의 단두대"
+  ,"item.league_of_minecraft.steel_sword": "강철 검"
+  ,"item.league_of_minecraft.yone_azakana_sword": "아자카나의 검"
+}

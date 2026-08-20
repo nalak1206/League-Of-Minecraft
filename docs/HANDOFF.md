@@ -4,7 +4,7 @@
 
 ## 현재 기준
 
-- 버전: `0.14.8`
+- 버전: `0.14.9`
 - 브랜치: `main`
 - 원격: `https://github.com/nalak1206/League-Of-Minecraft.git`
 - 실행 환경: Minecraft 26.2 / Fabric Loader 0.19.3 / Fabric API 0.157.0+26.2 / Java 25
@@ -115,7 +115,7 @@
 
 ## 주의점
 
-- `darius_skills` 네임스페이스를 바꾸면 기존 아이템·월드·리소스팩이 깨질 수 있습니다.
+- 정식 네임스페이스는 `league_of_minecraft`입니다. `darius_skills`는 0.14.8 이하 챔피언 무기 로드·자동 교체를 위한 호환 등록에만 남겨 둡니다.
 - 챔피언 무기는 일반 상점 장비와 별개이며 챔피언 전환 시 정리되어야 합니다.
 - 피해 공식 수정은 `CombatEngine`과 챔피언별 고정 피해 경로를 모두 확인해야 합니다.
 - 저장 필드를 추가할 때 `LolPlayerDataStore`의 저장과 불러오기를 같이 수정합니다.

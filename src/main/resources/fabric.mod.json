@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "id": "darius_skills",
+  "id": "league_of_minecraft",
   "version": "${version}",
   "name": "LOL Hyunmin",
   "description": "A Fabric League-inspired combat framework with playable Darius and Yone.",
   "authors": ["Codex"],
   "license": "CC0-1.0",
-  "icon": "assets/darius_skills/icon.png",
+  "icon": "assets/league_of_minecraft/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": ["kr.leagueofminecraft.LeagueOfMinecraftMod"],

@@ -96,7 +96,8 @@ public final class YoneSkills {
     }
 
     public static boolean isYoneWeapon(ItemStack stack) {
-        return stack.is(ModItems.YONE_STEEL_SWORD) || stack.is(ModItems.YONE_AZAKANA_SWORD);
+        return stack.is(ModItems.YONE_STEEL_SWORD) || stack.is(ModItems.YONE_AZAKANA_SWORD)
+                || stack.is(ModItems.LEGACY_YONE_STEEL_SWORD) || stack.is(ModItems.LEGACY_YONE_AZAKANA_SWORD);
     }
 
     public static void reduceUltimateCooldown(ServerPlayer player, long millis) {

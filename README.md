@@ -2,7 +2,7 @@
 
 Minecraft 26.2 Fabric에서 리그 오브 레전드식 챔피언 전투, 성장, 골드, 아이템 상점을 구현하는 모드입니다. 현재 플레이 가능한 챔피언은 다리우스와 요네이며 `Z/X/C/V`가 `Q/W/E/R`에 대응합니다.
 
-현재 버전: `0.14.8`
+현재 버전: `0.14.9`
 
 ## 빠른 시작
 
@@ -11,7 +11,7 @@ $env:JAVA_HOME='C:\path\to\jdk-25'
 .\gradlew.bat clean build
 ```
 
-생성 파일: `build/libs/league-of-minecraft-0.14.8.jar`
+생성 파일: `build/libs/league-of-minecraft-0.14.9.jar`
 
 기본 챔피언 무기는 핫바 1번에 고정됩니다. `Alt+1/2/3/5/6/7`은 M 인벤토리의 1~6번 장비 칸을 사용하고, `Alt+4`는 Q/W와 E/R 사이 장신구 칸을 사용합니다.
 
@@ -65,4 +65,5 @@ MATCH에서 투명 와드는 설치 당시 팀 소유가 됩니다. 아군은 �
 - [아이템 구현 현황](docs/ITEMS.md)
 - [변경 내역](CHANGELOG.md)
 
-Java 코드는 `kr.leagueofminecraft` 패키지를 사용합니다. 단, 기존 월드와 리소스팩 호환성을 위해 Fabric ID와 리소스 네임스페이스는 `darius_skills`를 유지합니다.
+Java 패키지와 Fabric ID, 아이템·리소스 네임스페이스는 모두 `league_of_minecraft`를 사용합니다.
+0.14.8 이하에서 저장된 챔피언 무기 ID는 호환 등록 후 접속 시 현재 무기로 자동 교체됩니다.

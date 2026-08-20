@@ -272,7 +272,9 @@ public final class DariusSkills {
     }
 
     public static boolean isDariusWeapon(ItemStack stack) {
-        return stack.is(NOXIAN_POWER) || stack.is(CRIPPLING_STRIKE_WEAPON) || stack.is(NOXIAN_GUILLOTINE);
+        return stack.is(NOXIAN_POWER) || stack.is(CRIPPLING_STRIKE_WEAPON) || stack.is(NOXIAN_GUILLOTINE)
+                || stack.is(ModItems.LEGACY_NOXIAN_POWER) || stack.is(ModItems.LEGACY_CRIPPLING_STRIKE)
+                || stack.is(ModItems.LEGACY_NOXIAN_GUILLOTINE);
     }
 
     private static boolean selectSkillWeapon(ServerPlayer player, int skill) {

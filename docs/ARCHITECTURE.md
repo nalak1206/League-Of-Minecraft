@@ -1,6 +1,6 @@
 # 프로젝트 구조
 
-코드의 공개 패키지는 `kr.leagueofminecraft`로 통일합니다. 기존 월드·리소스팩과의 호환성을 위해 Fabric 모드 ID와 리소스 네임스페이스 `darius_skills`는 유지합니다.
+코드의 공개 패키지는 `kr.leagueofminecraft`, Fabric 모드 ID와 리소스 네임스페이스는 `league_of_minecraft`로 통일합니다.
 
 ```text
 src/
@@ -25,8 +25,8 @@ src/
 └─ main/resources/
    ├─ fabric.mod.json
    ├─ league_of_minecraft.mixins.json
-   ├─ assets/darius_skills/            # 모델, 텍스처, 언어, 아이콘
-   └─ data/darius_skills/              # 피해 타입 데이터
+   ├─ assets/league_of_minecraft/      # 모델, 텍스처, 언어, 아이콘
+   └─ data/league_of_minecraft/        # 피해 타입 데이터
 ```
 
 ## 의존 방향
@@ -49,9 +49,10 @@ src/
 
 다음 값은 저장 데이터와 리소스팩을 깨뜨릴 수 있으므로 별도 마이그레이션 없이 바꾸지 않습니다.
 
-- Fabric ID: `darius_skills`
-- 리소스: `assets/darius_skills`
-- 데이터팩: `data/darius_skills`
+- Fabric ID: `league_of_minecraft`
+- 리소스: `assets/league_of_minecraft`
+- 데이터팩: `data/league_of_minecraft`
+- 0.14.8 이하 무기 레지스트리만 `darius_skills` 호환 ID로 함께 등록해 기존 월드 로드를 지원합니다.
 - 등록 아이템 ID와 피해 타입 ID
 
 Java 패키지명과 Gradle 프로젝트명은 호환 데이터가 아니므로 각각 `kr.leagueofminecraft`, `league-of-minecraft`로 정리했습니다.

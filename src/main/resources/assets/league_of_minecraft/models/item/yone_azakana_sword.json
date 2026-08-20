@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/handheld",
   "textures": {
-    "layer0": "darius_skills:item/noxian_power"
+    "layer0": "league_of_minecraft:item/yone_azakana_sword"
   }
 }

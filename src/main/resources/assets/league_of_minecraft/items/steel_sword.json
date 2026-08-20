@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "darius_skills:item/steel_sword"
+    "model": "league_of_minecraft:item/steel_sword"
   }
 }

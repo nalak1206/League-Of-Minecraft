@@ -37,13 +37,13 @@ public final class LeagueOfMinecraftClient implements ClientModInitializer {
                     context.client().player.swingingArm = hand;
                     context.client().player.swing(hand);
                 }));
-        KeyMapping q = key("key.darius_skills.q_keyboard", InputConstants.KEY_Z);
-        KeyMapping w = key("key.darius_skills.w_keyboard", InputConstants.KEY_X);
-        KeyMapping e = key("key.darius_skills.e_keyboard", InputConstants.KEY_C);
-        KeyMapping r = key("key.darius_skills.r_keyboard", InputConstants.KEY_V);
-        KeyMapping shop = key("key.darius_skills.shop", InputConstants.KEY_P);
-        KeyMapping inventory = key("key.darius_skills.lol_inventory", InputConstants.KEY_M);
-        KeyMapping recall = key("key.darius_skills.recall", InputConstants.KEY_B);
+        KeyMapping q = key("key.league_of_minecraft.q_keyboard", InputConstants.KEY_Z);
+        KeyMapping w = key("key.league_of_minecraft.w_keyboard", InputConstants.KEY_X);
+        KeyMapping e = key("key.league_of_minecraft.e_keyboard", InputConstants.KEY_C);
+        KeyMapping r = key("key.league_of_minecraft.r_keyboard", InputConstants.KEY_V);
+        KeyMapping shop = key("key.league_of_minecraft.shop", InputConstants.KEY_P);
+        KeyMapping inventory = key("key.league_of_minecraft.lol_inventory", InputConstants.KEY_M);
+        KeyMapping recall = key("key.league_of_minecraft.recall", InputConstants.KEY_B);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (q.consumeClick()) send(1);
             while (w.consumeClick()) send(4);

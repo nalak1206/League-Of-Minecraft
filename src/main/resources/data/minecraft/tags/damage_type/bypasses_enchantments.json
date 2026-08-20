@@ -1,4 +1,4 @@
 {
   "replace": false,
-  "values": ["darius_skills:noxian_guillotine", "darius_skills:soul_unbound", "darius_skills:knights_vow_transfer"]
+  "values": ["league_of_minecraft:noxian_guillotine", "league_of_minecraft:soul_unbound", "league_of_minecraft:knights_vow_transfer"]
 }
