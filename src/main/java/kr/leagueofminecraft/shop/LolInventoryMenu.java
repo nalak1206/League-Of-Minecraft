@@ -45,7 +45,9 @@ public final class LolInventoryMenu extends ChestMenu {
             display.setItem(SKILL_SLOTS[skill - 1], LolShopMenu.skillIcon(progress, skill));
         LolTrinket trinket = PlayerEconomy.trinket(owner);
         display.setItem(4, LolShopMenu.named(trinket.icon(),
-                "§a§l장신구 §f" + trinket.displayName() + " §7(클릭 전환 / Alt+4 사용)"));
+                "§a§l장신구 §f" + trinket.displayName()
+                        + (trinket == LolTrinket.STEALTH_WARD ? " §8| " + TrinketSystem.wardStatus(owner) : "")
+                        + " §7(클릭 전환 / Alt+4 사용)"));
         display.setItem(7, LolShopMenu.named(Items.GOLD_INGOT,
                 "§6§lGOLD " + PlayerEconomy.account(owner).gold() + "G"));
 

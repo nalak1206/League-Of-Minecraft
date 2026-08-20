@@ -16,10 +16,12 @@ import net.minecraft.world.entity.LivingEntity;
 import kr.leagueofminecraft.match.MatchManager;
 import kr.leagueofminecraft.match.MatchPhase;
 import kr.leagueofminecraft.match.RecallSystem;
+import kr.leagueofminecraft.champion.malphite.MalphiteSkills;
 
 /** Automatic League-style economy and champion progression. */
 public final class LolMatchSystem {
     private static final Map<UUID, Long> MATCH_JOIN_TICK = new HashMap<>();
+    private static final Map<UUID, Map<UUID, Long>> CONTRIBUTORS = new HashMap<>();
     private static boolean initialized;
 
     private LolMatchSystem() {}
@@ -36,7 +38,13 @@ public final class LolMatchSystem {
         });
         ServerLivingEntityEvents.AFTER_DAMAGE.register((target, source, base, taken, blocked) -> {
             if (taken > 0) {
-                if (target instanceof ServerPlayer player) RecallSystem.onDamaged(player);
+                if (target instanceof ServerPlayer player) {
+                    RecallSystem.onDamaged(player);
+                    MalphiteSkills.onDamaged(player);
+                }
+                if (source.getEntity() instanceof ServerPlayer attacker && target != attacker)
+                    CONTRIBUTORS.computeIfAbsent(target.getUUID(), id -> new HashMap<>())
+                            .put(attacker.getUUID(), (long) target.level().getServer().getTickCount());
                 LegendaryItemEffects.afterDamage(target, source, taken);
             }
         });
@@ -44,20 +52,39 @@ public final class LolMatchSystem {
     }
 
     private static void afterDeath(LivingEntity victim, DamageSource source) {
+        Map<UUID, Long> contributors = CONTRIBUTORS.remove(victim.getUUID());
         if (!(source.getEntity() instanceof ServerPlayer killer) || victim == killer) return;
         LegendaryItemEffects.onTakedown(killer, victim);
-        int gold = victim instanceof ServerPlayer ? 300
-                : Math.max(12, Math.min(90, Math.round(victim.getMaxHealth() * 1.5f)));
-        int xp = victim instanceof ServerPlayer ? 300
-                : Math.max(30, Math.min(240, Math.round(victim.getMaxHealth() * 4.0f)));
+        TakedownRewardRules.Reward reward = victim instanceof ServerPlayer
+                ? new TakedownRewardRules.Reward(TakedownRewardRules.CHAMPION_KILL_GOLD,
+                        TakedownRewardRules.CHAMPION_KILL_XP)
+                : TakedownRewardRules.minionReward(victim.getMaxHealth());
+        int gold = reward.gold();
+        int xp = reward.xp();
         PlayerEconomy.addGold(killer, gold);
         ChampionProgression.addXp(killer, xp);
         killer.connection.send(new ClientboundSetActionBarTextPacket(Component.literal(
                 "§6+" + gold + "G §b+" + xp + " XP")));
+        if (!(victim instanceof ServerPlayer defeated) || contributors == null) return;
+        long deathTick = defeated.level().getServer().getTickCount();
+        for (Map.Entry<UUID, Long> entry : contributors.entrySet()) {
+            if (entry.getKey().equals(killer.getUUID())
+                    || !TakedownRewardRules.assistEligible(entry.getValue(), deathTick)) continue;
+            ServerPlayer assistant = defeated.level().getServer().getPlayerList().getPlayer(entry.getKey());
+            if (assistant == null || MatchManager.areAllies(assistant, defeated)) continue;
+            PlayerEconomy.addGold(assistant, TakedownRewardRules.CHAMPION_ASSIST_GOLD);
+            ChampionProgression.addXp(assistant, TakedownRewardRules.CHAMPION_ASSIST_XP);
+            LegendaryItemEffects.onTakedown(assistant, victim);
+            assistant.connection.send(new ClientboundSetActionBarTextPacket(Component.literal(
+                    "§e어시스트 §6+" + TakedownRewardRules.CHAMPION_ASSIST_GOLD
+                            + "G §b+" + TakedownRewardRules.CHAMPION_ASSIST_XP + " XP")));
+        }
     }
 
     private static void tick(MinecraftServer server) {
         long ticks = server.getTickCount();
+        if (ticks % 200 == 0) CONTRIBUTORS.values().forEach(map ->
+                map.entrySet().removeIf(entry -> ticks - entry.getValue() > TakedownRewardRules.ASSIST_WINDOW_TICKS));
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             PlayerEconomy.tickRegen(player, ticks);
             if (ChampionManager.mode(player) != ChampionManager.GameMode.MATCH

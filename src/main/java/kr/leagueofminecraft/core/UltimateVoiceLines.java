@@ -22,14 +22,25 @@ public final class UltimateVoiceLines {
             "저들을 물어뜯어라!",
             "여기서 끝내겠다."
     );
+    private static final List<String> MALPHITE = List.of(
+            "바위처럼 단단하게!",
+            "넌 여기서 멈춘다!",
+            "산이 움직인다!"
+    );
     private static final List<TypingLine> ACTIVE = new ArrayList<>();
 
     private UltimateVoiceLines() {}
 
     public static void shout(ServerPlayer caster, ChampionManager.Champion champion) {
-        List<String> lines = champion == ChampionManager.Champion.YONE ? YONE : DARIUS;
-        String name = champion == ChampionManager.Champion.YONE ? "요네" : "다리우스";
-        String color = champion == ChampionManager.Champion.YONE ? "§d" : "§4";
+        List<String> lines = switch (champion) {
+            case YONE -> YONE;
+            case MALPHITE -> MALPHITE;
+            default -> DARIUS;
+        };
+        String name = champion == ChampionManager.Champion.YONE ? "요네"
+                : champion == ChampionManager.Champion.MALPHITE ? "말파이트" : "다리우스";
+        String color = champion == ChampionManager.Champion.YONE ? "§d"
+                : champion == ChampionManager.Champion.MALPHITE ? "§8" : "§4";
         String line = lines.get(caster.getRandom().nextInt(lines.size()));
         List<UUID> viewers = caster.level().getServer().getPlayerList().getPlayers().stream()
                 .filter(viewer -> viewer.level() == caster.level()

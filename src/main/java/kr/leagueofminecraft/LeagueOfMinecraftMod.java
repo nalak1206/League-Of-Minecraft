@@ -4,6 +4,8 @@ import kr.leagueofminecraft.champion.darius.DariusSkills;
 import kr.leagueofminecraft.champion.ChampionRegistry;
 import kr.leagueofminecraft.champion.darius.DariusChampion;
 import kr.leagueofminecraft.champion.yone.YoneChampion;
+import kr.leagueofminecraft.champion.malphite.MalphiteChampion;
+import kr.leagueofminecraft.champion.malphite.MalphiteSkills;
 import kr.leagueofminecraft.registry.ModItems;
 import kr.leagueofminecraft.core.UiActions;
 import net.fabricmc.api.ModInitializer;
@@ -15,7 +17,9 @@ public final class LeagueOfMinecraftMod implements ModInitializer {
         ModItems.initialize();
         ChampionRegistry.register(new DariusChampion());
         ChampionRegistry.register(new YoneChampion());
+        ChampionRegistry.register(new MalphiteChampion());
         UiActions.initialize();
         DariusSkills.initialize();
+        MalphiteSkills.initialize();
     }
 }

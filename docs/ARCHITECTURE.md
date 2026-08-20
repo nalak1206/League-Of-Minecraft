@@ -12,7 +12,8 @@ src/
 │  │  ├─ ChampionDefinition.java      # 공통 챔피언 계약
 │  │  ├─ ChampionRegistry.java        # 플레이 가능 챔피언 레지스트리
 │  │  ├─ darius/                      # 다리우스 스킬·상태·VFX 서비스
-│  │  └─ yone/                        # 요네 스킬·상태·이동 서비스
+│  │  ├─ yone/                        # 요네 스킬·상태·이동 서비스
+│  │  └─ malphite/                    # 말파이트 보호막·강화 평타·돌진 서비스
 │  ├─ core/                           # 챔피언 선택, 성장, CC, 매치, 저장
 │  ├─ match/                          # 팀 명단, 경기 상태, 기지·부활, 팀 시야와 영구 저장
 │  ├─ combat/                         # 물리/마법 피해와 치명타 계산
@@ -42,6 +43,9 @@ src/
   와드 소유권과 적 렌즈 판정은 `TeamWardRules`의 순수 규칙을 사용합니다.
 - 와드는 엔티티 태그에 설치자·팀·절대 만료 시각을 저장하며, `TrinketSystem`이 로드된 청크의
   미추적 와드를 주기적으로 복원하므로 별도 와드 JSON과 엔티티 저장본이 중복되지 않습니다.
+- 와드 충전 상태는 `PlayerEconomy.AccountSnapshot`에 저장하고 순수 `WardChargeRules`가
+  최대 2충전, 90초 재충전, 활성 와드 2개 제한을 계산합니다.
+- 킬·어시스트 보상과 10초 기여 판정은 순수 `TakedownRewardRules`를 기준으로 합니다.
 - 서포터 대상 판정은 `SupportItemRules`의 순수 규칙을 사용하고, 기사의 맹세 결속 UUID는
   `PlayerEconomy.AccountSnapshot`과 `lol_hyunmin_players.json`을 통해 영구 저장합니다.
 

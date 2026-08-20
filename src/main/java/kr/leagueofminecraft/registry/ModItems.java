@@ -21,6 +21,8 @@ public final class ModItems {
     public static final Item YONE_STEEL_SWORD = registerSteelSword();
     public static final Item YONE_AZAKANA_SWORD = register("yone_azakana_sword",
             new Item.Properties().sword(ToolMaterial.NETHERITE, -2.0f, -2.4f).rarity(Rarity.EPIC).fireResistant());
+    public static final Item MALPHITE_FIST = register("malphite_fist",
+            new Item.Properties().stacksTo(1).rarity(Rarity.RARE).fireResistant());
 
     // Compatibility registrations keep pre-0.14.9 worlds loadable long enough for the
     // champion loadout manager to remove the old stacks and equip canonical items.

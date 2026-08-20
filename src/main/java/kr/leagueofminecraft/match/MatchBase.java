@@ -23,4 +23,12 @@ public record MatchBase(String dimension, double x, double y, double z, float ya
         ServerLevel level = server.getLevel(key);
         return level != null && player.teleportTo(level, x, y, z, Set.<Relative>of(), yaw, pitch, false);
     }
+
+    public boolean contains(ServerPlayer player, double radius) {
+        if (!player.level().dimension().identifier().toString().equals(dimension)) return false;
+        double dx = player.getX() - x;
+        double dy = player.getY() - y;
+        double dz = player.getZ() - z;
+        return dx * dx + dy * dy + dz * dz <= radius * radius;
+    }
 }

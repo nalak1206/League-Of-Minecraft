@@ -106,6 +106,13 @@ public final class MatchManager {
         return phase == MatchPhase.RUNNING && ROSTER.areAllies(first.getUUID(), second.getUUID());
     }
 
+    public static boolean canUseShop(ServerPlayer player) {
+        if (ChampionManager.mode(player) != ChampionManager.GameMode.MATCH || phase != MatchPhase.RUNNING)
+            return true;
+        MatchBase base = BASES.get(team(player));
+        return base != null && base.contains(player, 12.0);
+    }
+
     public static void onJoin(ServerPlayer player) {
         MatchScoreboardTeams.syncPlayer(player, team(player));
         if (team(player) == MatchTeam.UNASSIGNED) return;

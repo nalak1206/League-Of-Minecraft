@@ -26,7 +26,7 @@ import kr.leagueofminecraft.match.MatchTeam;
 import kr.leagueofminecraft.match.RecallSystem;
 
 public final class ChampionManager {
-    public enum Champion { DARIUS, YONE }
+    public enum Champion { DARIUS, YONE, MALPHITE }
     public enum GameMode { ADVENTURE, MATCH }
 
     private static final Map<UUID, Champion> CHAMPIONS = new HashMap<>();
@@ -140,7 +140,7 @@ public final class ChampionManager {
                     return 1;
                 }))
                 .then(Commands.literal("inventory").executes(ctx -> {
-                    LolShop.open(ctx.getSource().getPlayerOrException());
+                    kr.leagueofminecraft.shop.LolInventory.open(ctx.getSource().getPlayerOrException());
                     return 1;
                 }))
                 .then(Commands.literal("item")
@@ -177,15 +177,13 @@ public final class ChampionManager {
                 .then(Commands.literal("cooldown")
                     .then(Commands.literal("reset").executes(ctx -> {
                         ServerPlayer player = ctx.getSource().getPlayerOrException();
-                        DariusSkills.reset(player);
-                        YoneSkills.reset(player);
+                        definitions().values().forEach(definition -> definition.reset(player));
                         ctx.getSource().sendSuccess(() -> Component.literal("Cooldowns reset."), false);
                         return 1;
                     })))
                 .then(Commands.literal("reset").executes(ctx -> {
                     ServerPlayer player = ctx.getSource().getPlayerOrException();
-                    DariusSkills.reset(player);
-                    YoneSkills.reset(player);
+                    definitions().values().forEach(definition -> definition.reset(player));
                     ChampionProgression.reset(player);
                     PlayerEconomy.reset(player);
                     TrinketSystem.reset(player);
@@ -204,7 +202,7 @@ public final class ChampionManager {
     }
 
     public static void select(ServerPlayer player, Champion champion) {
-        boolean championChanged = champion(player) != champion;
+        boolean championChanged = ChampionTransitionRules.shouldResetProgression(champion(player), champion);
         definitions().values().forEach(definition -> definition.reset(player));
         clearChampionWeapons(player);
         CHAMPIONS.put(player.getUUID(), champion);
@@ -216,6 +214,7 @@ public final class ChampionManager {
 
     public static boolean isDarius(ServerPlayer player) { return champion(player) == Champion.DARIUS; }
     public static boolean isYone(ServerPlayer player) { return champion(player) == Champion.YONE; }
+    public static boolean isMalphite(ServerPlayer player) { return champion(player) == Champion.MALPHITE; }
 
     public static void cast(ServerPlayer player, int wireSkill) {
         if (CrowdControl.blocksSkills(player)) return;
@@ -250,6 +249,7 @@ public final class ChampionManager {
     }
 
     static void onJoin(ServerPlayer player) {
+        definitions().values().forEach(definition -> definition.reset(player));
         clearChampionWeapons(player);
         definition(champion(player)).equip(player);
         PlayerEconomy.applyAttributes(player);

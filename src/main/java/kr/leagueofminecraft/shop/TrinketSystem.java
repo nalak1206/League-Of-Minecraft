@@ -60,7 +60,10 @@ public final class TrinketSystem {
         });
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             long now = System.currentTimeMillis();
-            if (server.getTickCount() % 20 == 0) restoreLoadedWards(server, now);
+            if (server.getTickCount() % 20 == 0) {
+                restoreLoadedWards(server, now);
+                for (ServerPlayer player : server.getPlayerList().getPlayers()) refreshWardCharges(player, now);
+            }
             Iterator<PlacedWard> iterator = WARDS.iterator();
             while (iterator.hasNext()) {
                 PlacedWard ward = iterator.next();
@@ -92,6 +95,15 @@ public final class TrinketSystem {
         }
 
         ServerLevel level = player.level();
+        restoreLoadedWards(level.getServer(), now);
+        WardChargeRules.State charge = refreshWardCharges(player, now);
+        int activeWards = (int) WARDS.stream().filter(ward -> ward.owner().equals(player.getUUID())
+                && ward.entity().isAlive()).count();
+        if (activeWards >= WardChargeRules.MAX_ACTIVE_WARDS)
+            return "설치 한도: 활성 와드는 최대 2개입니다";
+        if (charge.charges() <= 0)
+            return String.format(java.util.Locale.ROOT, "와드 충전 중 %.1f초",
+                    Math.max(0L, charge.rechargeAt() - now) / 1000.0);
         Vec3 location = player.pick(8.0, 0.0f, false).getLocation();
         ArmorStand ward = new ArmorStand(level, location.x, location.y, location.z);
         ward.setNoGravity(true);
@@ -111,7 +123,8 @@ public final class TrinketSystem {
         ward.addTag(HEALTH_PREFIX + TeamWardRules.MAX_HEALTH);
         MatchScoreboardTeams.addEntity(level.getServer(), ward, ownerTeam);
         WARDS.add(new PlacedWard(ward, player.getUUID(), ownerTeam, expiresAt, TeamWardRules.MAX_HEALTH));
-        READY_AT.put(player.getUUID(), now + 30_000);
+        PlayerEconomy.setWardChargeState(player, WardChargeRules.consume(charge, now));
+        kr.leagueofminecraft.core.LolPlayerDataStore.save(player.level().getServer());
         level.playSound(null, ward.blockPosition(), SoundEvents.AMETHYST_BLOCK_PLACE,
                 SoundSource.PLAYERS, 0.8f, 1.5f);
         return "투명 와드 설치";
@@ -123,9 +136,29 @@ public final class TrinketSystem {
 
     public static void reset(ServerPlayer player) {
         READY_AT.remove(player.getUUID());
+        PlayerEconomy.setWardChargeState(player,
+                new WardChargeRules.State(WardChargeRules.MAX_CHARGES, 0L));
         List<PlacedWard> owned = WARDS.stream()
                 .filter(ward -> ward.owner().equals(player.getUUID())).toList();
         for (PlacedWard ward : owned) removeWard(player.level().getServer(), ward);
+    }
+
+    public static String wardStatus(ServerPlayer player) {
+        long now = System.currentTimeMillis();
+        WardChargeRules.State state = refreshWardCharges(player, now);
+        if (state.charges() >= WardChargeRules.MAX_CHARGES) return "§a" + state.charges() + "/2 충전";
+        long seconds = Math.max(1L, (state.rechargeAt() - now + 999L) / 1000L);
+        return "§e" + state.charges() + "/2 §7(다음 " + seconds + "초)";
+    }
+
+    private static WardChargeRules.State refreshWardCharges(ServerPlayer player, long now) {
+        WardChargeRules.State previous = PlayerEconomy.wardChargeState(player);
+        WardChargeRules.State refreshed = WardChargeRules.refresh(previous, now);
+        if (!refreshed.equals(previous)) {
+            PlayerEconomy.setWardChargeState(player, refreshed);
+            kr.leagueofminecraft.core.LolPlayerDataStore.save(player.level().getServer());
+        }
+        return refreshed;
     }
 
     private static String revealEnemyWards(ServerPlayer player, long now) {

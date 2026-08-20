@@ -59,6 +59,8 @@ public final class LolPlayerDataStore {
             data.addProperty("trinket", economy.trinket());
             if (economy.knightsVowTarget() != null)
                 data.addProperty("knightsVowTarget", economy.knightsVowTarget());
+            data.addProperty("wardCharges", economy.wardCharges());
+            data.addProperty("wardRechargeAt", economy.wardRechargeAt());
             root.add(playerId.toString(), data);
         }
         try {
@@ -89,7 +91,8 @@ public final class LolPlayerDataStore {
                 String[] items = data.has("items") ? GSON.fromJson(data.get("items"), String[].class) : new String[0];
                 PlayerEconomy.load(playerId, new PlayerEconomy.AccountSnapshot(integer(data, "gold", 500), items,
                         data.has("trinket") ? data.get("trinket").getAsString() : "STEALTH_WARD",
-                        data.has("knightsVowTarget") ? data.get("knightsVowTarget").getAsString() : null));
+                        data.has("knightsVowTarget") ? data.get("knightsVowTarget").getAsString() : null,
+                        integer(data, "wardCharges", 2), longValue(data, "wardRechargeAt", 0L)));
             }
         } catch (Exception ignored) {
             ChampionManager.clear();
@@ -102,6 +105,10 @@ public final class LolPlayerDataStore {
 
     private static int integer(JsonObject object, String key, int fallback) {
         return object.has(key) ? object.get(key).getAsInt() : fallback;
+    }
+
+    private static long longValue(JsonObject object, String key, long fallback) {
+        return object.has(key) ? object.get(key).getAsLong() : fallback;
     }
 
     private static <T extends Enum<T>> T enumValue(Class<T> type, JsonObject object, String key, T fallback) {

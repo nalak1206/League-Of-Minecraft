@@ -5,6 +5,7 @@ import static kr.leagueofminecraft.champion.darius.DariusVfx.*;
 
 import kr.leagueofminecraft.ModConstants;
 import kr.leagueofminecraft.champion.yone.YoneSkills;
+import kr.leagueofminecraft.champion.malphite.MalphiteSkills;
 import kr.leagueofminecraft.core.ChampionManager;
 import kr.leagueofminecraft.core.CrowdControl;
 import kr.leagueofminecraft.core.UltimateVoiceLines;
@@ -127,6 +128,9 @@ public final class DariusSkills {
                     && ChampionManager.isYone(serverPlayer) && entity instanceof LivingEntity living) {
                 if (YoneSkills.basicAttack(serverPlayer, living)) return InteractionResult.SUCCESS;
             }
+            if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
+                    && ChampionManager.isMalphite(serverPlayer) && entity instanceof LivingEntity living
+                    && MalphiteSkills.empoweredAttack(serverPlayer, living)) return InteractionResult.SUCCESS;
             if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer
                     && ChampionManager.isDarius(serverPlayer)
                     && entity instanceof LivingEntity living && hasDariusWeapon(serverPlayer)) {
