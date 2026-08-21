@@ -9,7 +9,7 @@
   "elements": [
     {
       "name": "wrist",
-      "from": [5, 0, 5], "to": [11, 7, 11],
+      "from": [5, 2, 5], "to": [11, 8, 11],
       "faces": {
         "north": { "uv": [5, 9, 11, 16], "texture": "#cobblestone" },
         "east": { "uv": [5, 9, 11, 16], "texture": "#cobblestone" },
@@ -21,7 +21,7 @@
     },
     {
       "name": "palm",
-      "from": [3, 5, 3], "to": [13, 13, 12],
+      "from": [3, 5, 3], "to": [13, 13, 13],
       "faces": {
         "north": { "uv": [3, 3, 13, 11], "texture": "#cobblestone" },
         "east": { "uv": [4, 3, 13, 11], "texture": "#cobblestone" },
@@ -33,7 +33,7 @@
     },
     {
       "name": "knuckles",
-      "from": [1, 11, 2], "to": [15, 16, 11],
+      "from": [2, 11, 2], "to": [14, 15, 13],
       "faces": {
         "north": { "uv": [1, 0, 15, 5], "texture": "#cobblestone" },
         "east": { "uv": [3, 0, 12, 5], "texture": "#cobblestone" },
@@ -45,7 +45,7 @@
     },
     {
       "name": "thumb",
-      "from": [11, 5, 1], "to": [16, 11, 8],
+      "from": [11, 5, 3], "to": [15, 11, 10],
       "faces": {
         "north": { "uv": [0, 5, 5, 11], "texture": "#cobblestone" },
         "east": { "uv": [0, 5, 7, 11], "texture": "#cobblestone" },
@@ -58,16 +58,16 @@
   ],
   "display": {
     "thirdperson_righthand": {
-      "rotation": [0, 90, 0], "translation": [0, 3.25, 1.5], "scale": [0.72, 0.72, 0.72]
+      "rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.375, 0.375, 0.375]
     },
     "thirdperson_lefthand": {
-      "rotation": [0, -90, 0], "translation": [0, 3.25, 1.5], "scale": [0.72, 0.72, 0.72]
+      "rotation": [75, 225, 0], "translation": [0, 2.5, 0], "scale": [0.375, 0.375, 0.375]
     },
     "firstperson_righthand": {
-      "rotation": [0, 45, 0], "translation": [1.2, 3.6, 1.0], "scale": [0.82, 0.82, 0.82]
+      "rotation": [0, 45, 0], "translation": [0, 0, 0], "scale": [0.4, 0.4, 0.4]
     },
     "firstperson_lefthand": {
-      "rotation": [0, -45, 0], "translation": [-1.2, 3.6, 1.0], "scale": [0.82, 0.82, 0.82]
+      "rotation": [0, 225, 0], "translation": [0, 0, 0], "scale": [0.4, 0.4, 0.4]
     },
     "ground": { "translation": [0, 2, 0], "scale": [0.45, 0.45, 0.45] },
     "gui": { "rotation": [30, 225, 0], "scale": [0.72, 0.72, 0.72] },
