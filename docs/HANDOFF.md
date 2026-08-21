@@ -4,7 +4,7 @@
 
 ## 현재 기준
 
-- 버전: `0.15.3`
+- 버전: `0.15.4`
 - 브랜치: `main`
 - 원격: `https://github.com/nalak1206/League-Of-Minecraft.git`
 - 실행 환경: Minecraft 26.2 / Fabric Loader 0.19.3 / Fabric API 0.157.0+26.2 / Java 25

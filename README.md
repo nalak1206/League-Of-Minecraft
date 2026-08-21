@@ -2,7 +2,7 @@
 
 Minecraft 26.2 Fabric에서 리그 오브 레전드식 챔피언 전투, 성장, 골드, 아이템 상점을 구현하는 모드입니다. 현재 플레이 가능한 챔피언은 다리우스, 요네, 말파이트이며 `Z/X/C/V`가 `Q/W/E/R`에 대응합니다.
 
-현재 버전: `0.15.3`
+현재 버전: `0.15.4`
 
 ## 빠른 시작
 
@@ -11,7 +11,7 @@ $env:JAVA_HOME='C:\path\to\jdk-25'
 .\gradlew.bat clean build
 ```
 
-생성 파일: `build/libs/league-of-minecraft-0.15.3.jar`
+생성 파일: `build/libs/league-of-minecraft-0.15.4.jar`
 
 기본 챔피언 무기는 핫바 1번에 고정됩니다. `Alt+1/2/3/5/6/7`은 M 인벤토리의 1~6번 장비 칸을 사용하고, `Alt+4`는 Q/W와 E/R 사이 장신구 칸을 사용합니다.
 
