@@ -31,6 +31,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /** League-inspired Malphite P/Q/W/E/R for the common Z/X/C/V input layer. */
@@ -57,7 +58,7 @@ public final class MalphiteSkills {
         if (!displaced.isEmpty() && !isWeapon(displaced)) player.getInventory().add(displaced.copy());
         removeWeapons(player);
         ItemStack fist = new ItemStack(ModItems.MALPHITE_FIST);
-        fist.set(DataComponents.CUSTOM_NAME, Component.literal("§8§l화강암 주먹"));
+        fist.set(DataComponents.CUSTOM_NAME, Component.literal("§8§l바위 주먹"));
         player.getInventory().setItem(0, fist);
         player.getInventory().setSelectedSlot(0);
         LAST_DAMAGED.put(player.getUUID(), System.currentTimeMillis() - 10_000L);
@@ -100,7 +101,10 @@ public final class MalphiteSkills {
         CombatEngine.deal(player, target, damage, CombatEngine.DamageKind.PHYSICAL,
                 CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
         for (LivingEntity nearby : player.level().getEntitiesOfClass(LivingEntity.class,
-                target.getBoundingBox().inflate(2.4), entity -> entity != player && entity != target && entity.isAlive()))
+                target.getBoundingBox().inflate(2.4), entity -> entity != player && entity != target && entity.isAlive()
+                        && target.hasLineOfSight(entity)
+                        && MalphiteSkillRules.withinHorizontalRadius(
+                                entity.getX() - target.getX(), entity.getZ() - target.getZ(), 2.4)))
             CombatEngine.deal(player, nearby, damage * 0.45f, CombatEngine.DamageKind.PHYSICAL,
                     CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
         W_ACTIVE.put(player.getUUID(), new WState(state.expiresAt, false));
@@ -118,7 +122,7 @@ public final class MalphiteSkills {
     private static void q(ServerPlayer player) {
         long now = System.currentTimeMillis();
         if (!ready(player, 1, now)) return;
-        LivingEntity target = aimedTarget(player, 8.0, 0.72);
+        LivingEntity target = aimedTarget(player, MalphiteSkillRules.Q_RANGE, 0.72);
         if (target == null) return;
         markCast(player, 1, now);
         LegendaryItemEffects.onSkillInput(player);
@@ -150,7 +154,8 @@ public final class MalphiteSkills {
         float armor = (float) player.getAttributeValue(Attributes.ARMOR) * 10.0f;
         float damage = 3.0f + rank * 1.15f + armor * 0.08f + (float) PlayerEconomy.abilityPower(player) * 0.30f;
         for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class,
-                player.getBoundingBox().inflate(4.0), entity -> entity != player && entity.isAlive())) {
+                player.getBoundingBox().inflate(MalphiteSkillRules.E_RADIUS),
+                entity -> validAreaTarget(player, entity, MalphiteSkillRules.E_RADIUS))) {
             CombatEngine.deal(player, target, damage, CombatEngine.DamageKind.MAGIC, CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
             target.addEffect(new MobEffectInstance(MobEffects.MINING_FATIGUE, 60, Math.min(4, rank), false, false));
         }
@@ -167,13 +172,13 @@ public final class MalphiteSkills {
     private static void r(ServerPlayer player) {
         long now = System.currentTimeMillis();
         if (!ready(player, 4, now)) return;
-        Vec3 forward = flatLook(player);
-        if (forward == null) return;
+        Vec3 end = resolveDashEnd(player);
+        if (end == null || end.distanceToSqr(player.position()) < 0.56) return;
         markCast(player, 4, now);
         LegendaryItemEffects.onSkillInput(player);
         UltimateVoiceLines.shout(player, ChampionManager.Champion.MALPHITE);
         Vec3 start = player.position();
-        DASHES.put(player.getUUID(), new Dash(start, start.add(forward.scale(11.0)), 0));
+        DASHES.put(player.getUUID(), new Dash(start, end, 0));
         player.setNoGravity(true);
         player.level().playSound(null, player.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.0f, 0.65f);
     }
@@ -189,10 +194,15 @@ public final class MalphiteSkills {
         }
         for (Map.Entry<UUID, Dash> entry : List.copyOf(DASHES.entrySet())) {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player == null || !player.isAlive()) { DASHES.remove(entry.getKey()); continue; }
+            if (player == null) { DASHES.remove(entry.getKey()); continue; }
+            if (!player.isAlive()) {
+                player.setNoGravity(false);
+                DASHES.remove(entry.getKey());
+                continue;
+            }
             Dash dash = entry.getValue();
             int nextTick = dash.tick + 1;
-            double progress = Math.min(1.0, nextTick / 8.0);
+            double progress = MalphiteSkillRules.dashProgress(nextTick);
             Vec3 position = dash.start.lerp(dash.end, progress);
             player.teleportTo(position.x, position.y, position.z);
             player.level().sendParticles(ROCK, position.x, position.y + 0.8, position.z, 12, 0.55, 0.55, 0.55, 0.02);
@@ -201,7 +211,8 @@ public final class MalphiteSkills {
             player.setNoGravity(false);
             float damage = 7.0f + rank(player, 4) * 2.5f + (float) PlayerEconomy.abilityPower(player) * 0.45f;
             for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class,
-                    player.getBoundingBox().inflate(3.2), entity -> entity != player && entity.isAlive())) {
+                    player.getBoundingBox().inflate(MalphiteSkillRules.R_IMPACT_RADIUS),
+                    entity -> validAreaTarget(player, entity, MalphiteSkillRules.R_IMPACT_RADIUS))) {
                 CombatEngine.deal(player, target, damage, CombatEngine.DamageKind.MAGIC, CombatEngine.KnockbackPolicy.PRESERVE_MOVEMENT);
                 CrowdControl.apply(target, CrowdControl.Type.AIRBORNE, 1_500L);
                 target.setDeltaMovement(0, 0.85, 0);
@@ -228,9 +239,41 @@ public final class MalphiteSkills {
     private static LivingEntity aimedTarget(ServerPlayer player, double range, double minimumDot) {
         Vec3 look = player.getLookAngle().normalize();
         return player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(range), target -> target != player && target.isAlive())
-                .stream().filter(target -> target.position().add(0, target.getBbHeight() * 0.5, 0)
+                .stream().filter(target -> player.distanceToSqr(target) <= range * range
+                        && player.hasLineOfSight(target)
+                        && target.position().add(0, target.getBbHeight() * 0.5, 0)
                         .subtract(player.getEyePosition()).normalize().dot(look) >= minimumDot)
                 .min(Comparator.comparingDouble(player::distanceToSqr)).orElse(null);
+    }
+
+    private static boolean validAreaTarget(ServerPlayer player, LivingEntity target, double radius) {
+        if (target == player || !target.isAlive() || !player.hasLineOfSight(target)) return false;
+        return MalphiteSkillRules.withinHorizontalRadius(
+                target.getX() - player.getX(), target.getZ() - player.getZ(), radius);
+    }
+
+    /** Uses the crosshair point when available, then shortens the path before the first solid collision. */
+    private static Vec3 resolveDashEnd(ServerPlayer player) {
+        Vec3 start = player.position();
+        Vec3 forward = flatLook(player);
+        if (forward == null) return null;
+        double requestedDistance = MalphiteSkillRules.R_RANGE;
+        HitResult hit = player.pick(MalphiteSkillRules.R_RANGE, 0.0f, false);
+        if (hit.getType() != HitResult.Type.MISS) {
+            Vec3 horizontal = new Vec3(hit.getLocation().x - start.x, 0, hit.getLocation().z - start.z);
+            if (horizontal.lengthSqr() > 0.01)
+                requestedDistance = MalphiteSkillRules.clampRange(horizontal.length(), MalphiteSkillRules.R_RANGE);
+        }
+        Vec3 requestedEnd = start.add(forward.scale(requestedDistance));
+        Vec3 safe = start;
+        double total = requestedEnd.subtract(start).length();
+        for (double distance = 0.25; distance <= total + 0.001; distance += 0.25) {
+            Vec3 candidate = start.add(forward.scale(Math.min(distance, total)));
+            Vec3 offset = candidate.subtract(start);
+            if (!player.level().noCollision(player, player.getBoundingBox().move(offset))) break;
+            safe = candidate;
+        }
+        return safe;
     }
 
     private static void line(ServerLevel level, Vec3 from, Vec3 to) {
